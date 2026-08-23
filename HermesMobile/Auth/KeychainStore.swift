@@ -25,6 +25,11 @@ struct KeychainStore: KeychainStoring {
         // URL is treated as a credential (PROJECT_SPEC Phase 1), so the registry
         // lives in the Keychain, not UserDefaults (#15).
         case servers = "servers"
+        // Hermes Agent (Nous) session token, scoped per server (#port). The
+        // token is ALSO injected as an X-Hermes-Session-Token custom header at
+        // configure time; this scoped copy is the canonical source the WS
+        // client reads for `?token=` on /api/ws.
+        case sessionToken = "session_token"
     }
 
     private let keychain: Keychain

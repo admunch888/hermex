@@ -8,11 +8,18 @@ final class OnboardingViewModel {
 
     var serverURLString = ""
     var password = ""
+    /// Hermes Agent (Nous) session token — used instead of a password when the
+    /// server is detected as Hermes Agent serve (port).
+    var token = ""
     var customHeaders: [CustomHeader] = []
     var authStatus: AuthStatusResponse?
     var connectionMessage: String?
     var errorMessage: String?
     var isWorking = false
+
+    /// True once the server URL has been identified as Hermes Agent (Nous)
+    /// serve — switches the connect flow from password to session-token auth.
+    private(set) var isHermesAgentServer = false
 
     init(
         savedServer: URL? = nil,
@@ -42,6 +49,16 @@ final class OnboardingViewModel {
         isWorking = true
         defer { isWorking = false }
 
+        // Hermes Agent (Nous) servers first: /api/status identifies them, and
+        // they authenticate with a session token rather than a password.
+        if let serverURL = try? AuthManager.normalizedServerURL(from: serverURLString),
+           await HermesAgentAuth.isHermesAgentServer(baseURL: serverURL) {
+            isHermesAgentServer = true
+            connectionMessage = String(localized: "Connection ok. Session token required.")
+            return
+        }
+        isHermesAgentServer = false
+
         do {
             let status = try await authManager.testConnection(
                 serverURLString: serverURLString,
@@ -65,6 +82,33 @@ final class OnboardingViewModel {
     func connect(authManager: AuthManager) async {
         errorMessage = nil
         connectionMessage = nil
+
+        // A direct connect (no prior test) still needs Hermes Agent detection
+        // before the password branch, because the webui probe would 404 on it.
+        if !isHermesAgentServer, authStatus == nil,
+           let serverURL = try? AuthManager.normalizedServerURL(from: serverURLString),
+           await HermesAgentAuth.isHermesAgentServer(baseURL: serverURL) {
+            isHermesAgentServer = true
+        }
+
+        if isHermesAgentServer {
+            let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedToken.isEmpty else {
+                errorMessage = String(localized: "Enter the session token.")
+                return
+            }
+
+            isWorking = true
+            defer { isWorking = false }
+
+            await authManager.configureHermes(
+                serverURLString: serverURLString,
+                token: trimmedToken,
+                customHeaders: customHeaders
+            )
+            errorMessage = authManager.lastErrorMessage
+            return
+        }
 
         if let validationMessage = Self.passwordValidationMessage(authStatus: authStatus, password: password) {
             errorMessage = validationMessage

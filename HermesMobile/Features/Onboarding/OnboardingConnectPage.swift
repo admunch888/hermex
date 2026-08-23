@@ -3,6 +3,7 @@ import SwiftUI
 enum OnboardingConnectField: Hashable {
     case serverURL
     case password
+    case token
 }
 
 struct OnboardingConnectPage: View {
@@ -68,6 +69,26 @@ struct OnboardingConnectPage: View {
                             .textContentType(.password)
                             .submitLabel(.go)
                             .focused($focusedField, equals: .password)
+                            .onSubmit(submitConnection)
+                        }
+                    }
+
+                    // Hermes Agent (Nous) servers authenticate with a session
+                    // token (HERMES_DASHBOARD_SESSION_TOKEN from the server's
+                    // .env), not a password (port).
+                    if viewModel.isHermesAgentServer {
+                        OnboardingField(systemImage: "key.horizontal.fill", title: String(localized: "Session token")) {
+                            SecureField(
+                                "",
+                                text: $viewModel.token,
+                                prompt: Text("HERMES_DASHBOARD_SESSION_TOKEN")
+                                    .foregroundStyle(.white.opacity(0.38))
+                            )
+                            .textContentType(.password)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .submitLabel(.go)
+                            .focused($focusedField, equals: .token)
                             .onSubmit(submitConnection)
                         }
                     }

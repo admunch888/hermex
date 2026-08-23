@@ -189,6 +189,67 @@ final class AuthManager {
         }
     }
 
+    /// Hermes Agent (Nous) token-auth path — the port's replacement for
+    /// password login. Detects a Hermes Agent serve server via /api/status,
+    /// validates the session token against a gated endpoint, then stores the
+    /// token in two places: (1) the per-server scoped Keychain entry (the
+    /// canonical source the WS client reads for `?token=` on /api/ws), and
+    /// (2) injected as an `X-Hermes-Session-Token` custom header so EVERY
+    /// existing REST request (APIClient, multipart uploads, transcribe) carries
+    /// it automatically through the shared header store — no APIClient changes.
+    func configureHermes(
+        serverURLString: String,
+        token: String,
+        customHeaders: [CustomHeader] = []
+    ) async {
+        lastErrorMessage = nil
+
+        do {
+            let serverURL = try Self.normalizedServerURL(from: serverURLString)
+
+            guard await HermesAgentAuth.isHermesAgentServer(baseURL: serverURL) else {
+                lastErrorMessage = String(localized: "That server doesn't look like a Hermes Agent server. Check the URL.")
+                return
+            }
+
+            let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedToken.isEmpty else {
+                lastErrorMessage = String(localized: "Enter the session token.")
+                return
+            }
+
+            guard await HermesAgentAuth.validateToken(baseURL: serverURL, token: trimmedToken) else {
+                lastErrorMessage = String(localized: "The session token was rejected. Check it and try again.")
+                state = .loggedOut(server: serverURL)
+                return
+            }
+
+            // Inject the token as a header unless the caller already supplied it.
+            var headers = customHeaders.sanitizedForStorage()
+            if !headers.contains(where: { $0.sanitizedName == "X-Hermes-Session-Token" }) {
+                headers.append(CustomHeader(name: "X-Hermes-Session-Token", value: trimmedToken))
+            }
+            headerStore.replace(with: headers)
+
+            // Persist only on success (same discipline as configure()).
+            try keychain.save(serverURL.absoluteString, forKey: .serverURL)
+            try keychain.save(trimmedToken, forKey: .sessionToken, scope: serverURL.absoluteString)
+            serverRegistry.activate(url: serverURL)
+            persistCustomHeaders(for: serverURL)
+            refreshServers()
+            state = .loggedIn(server: serverURL)
+        } catch {
+            lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    /// The Hermes Agent session token for `server` (scoped Keychain entry), or
+    /// nil when the server isn't configured with token auth. Used by the WS
+    /// client (`?token=` on /api/ws) and future ported clients.
+    func sessionToken(for server: URL) -> String? {
+        try? keychain.load(.sessionToken, scope: server.absoluteString)
+    }
+
     /// Outcome of `addServer`, so the in-app add-server flow can reveal the
     /// password field only when the server actually needs one (#17).
     enum AddServerOutcome: Equatable {
@@ -396,10 +457,12 @@ final class AuthManager {
         }
     }
 
-    /// Deletes one server's local auth artifacts — its scoped custom headers and
-    /// its cookies — without touching the registry or the global `server_url` key.
+    /// Deletes one server's local auth artifacts — its scoped custom headers,
+    /// its Hermes session token, and its cookies — without touching the
+    /// registry or the global `server_url` key.
     private func clearLocalArtifacts(for server: URL) {
         try? keychain.delete(.customHeaders, scope: server.absoluteString)
+        try? keychain.delete(.sessionToken, scope: server.absoluteString)
         clearSessionCookies(for: server)
     }
 
