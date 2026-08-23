@@ -8,6 +8,10 @@ import Foundation
 // `Authorization: Bearer <token>`; /api/status + /api/health are public.
 // This is the additive replacement for hermes-webui's `Endpoint` enum; the
 // old enum stays until the ported API clients land.
+//
+// URL construction mirrors hermex's Endpoint: path is appended verbatim via
+// `appending(path:)` and query items go through URLComponents — never embed
+// query strings in `path` (they get percent-encoded).
 
 enum HermesEndpoint: Equatable {
     // MARK: Status / health
@@ -25,6 +29,7 @@ enum HermesEndpoint: Equatable {
     case updateSession(id: String)
     case deleteSession(id: String)
     case sessionMessages(id: String, limit: Int?, offset: Int?)
+    /// Note: the search route's query param is `q` (verified in OpenAPI).
     case sessionSearch(query: String, limit: Int?)
     case sessionExport(id: String)
     case sessionsStats
@@ -64,20 +69,21 @@ enum HermesEndpoint: Equatable {
     case filesUpload
     case filesUploadStream
 
-    // MARK: Git
-    case gitStatus
-    case gitBranches
+    // MARK: Git — status/branches/worktrees/base-branches/review-list all
+    // require a `path` query param (workspace-scoped, verified in OpenAPI).
+    case gitStatus(path: String)
+    case gitBranches(path: String)
     case gitSwitchBranch
-    case gitBaseBranches
-    case gitFileDiff(path: String, kind: String?)
+    case gitBaseBranches(path: String)
+    case gitFileDiff(path: String, file: String)
     case gitReviewStage
     case gitReviewUnstage
     case gitReviewCommit
     case gitReviewPush
     case gitReviewCreatePR
     case gitReviewRevert
-    case gitReviewList
-    case gitWorktrees
+    case gitReviewList(path: String)
+    case gitWorktrees(path: String)
 
     // MARK: Models / providers
     case modelOptions
@@ -112,31 +118,20 @@ enum HermesEndpoint: Equatable {
     // MARK: Updates
     case updateCheck
 
+    /// Raw path (no query string — query items go in `queryItems`).
     var path: String {
         switch self {
         case .status: return "/api/status"
         case .health: return "/api/health"
 
-        case .validateToken: return "/api/sessions?limit=1"
+        case .validateToken: return "/api/sessions"
 
-        case .sessions(let limit, let offset, let full):
-            var items: [URLQueryItem] = []
-            if let limit { items.append(.init(name: "limit", value: "\(limit)")) }
-            if let offset { items.append(.init(name: "offset", value: "\(offset)")) }
-            if let full { items.append(.init(name: "full", value: full ? "true" : "false")) }
-            return "/api/sessions" + queryString(items)
+        case .sessions: return "/api/sessions"
         case .session(let id): return "/api/sessions/\(id)"
         case .updateSession(let id): return "/api/sessions/\(id)"
         case .deleteSession(let id): return "/api/sessions/\(id)"
-        case .sessionMessages(let id, let limit, let offset):
-            var items: [URLQueryItem] = []
-            if let limit { items.append(.init(name: "limit", value: "\(limit)")) }
-            if let offset { items.append(.init(name: "offset", value: "\(offset)")) }
-            return "/api/sessions/\(id)/messages" + queryString(items)
-        case .sessionSearch(let query, let limit):
-            var items = [URLQueryItem(name: "query", value: query)]
-            if let limit { items.append(.init(name: "limit", value: "\(limit)")) }
-            return "/api/sessions/search" + queryString(items)
+        case .sessionMessages(let id, _, _): return "/api/sessions/\(id)/messages"
+        case .sessionSearch: return "/api/sessions/search"
         case .sessionExport(let id): return "/api/sessions/\(id)/export"
         case .sessionsStats: return "/api/sessions/stats"
 
@@ -156,19 +151,16 @@ enum HermesEndpoint: Equatable {
         case .cronDeliveryTargets: return "/api/cron/delivery-targets"
 
         case .skills: return "/api/skills"
-        case .skillContent(let name, let file):
-            var items = [URLQueryItem(name: "name", value: name)]
-            if let file { items.append(.init(name: "file", value: file)) }
-            return "/api/skills/content" + queryString(items)
-        case .toggleSkill(let name): return "/api/skills/toggle" + queryString([.init(name: "name", value: name)])
+        case .skillContent: return "/api/skills/content"
+        case .toggleSkill: return "/api/skills/toggle"
 
         case .memory: return "/api/memory"
 
-        case .fsList(let path): return "/api/fs/list" + queryString([.init(name: "path", value: path)])
-        case .fsReadText(let path): return "/api/fs/read-text" + queryString([.init(name: "path", value: path)])
-        case .fsReadDataURL(let path): return "/api/fs/read-data-url" + queryString([.init(name: "path", value: path)])
+        case .fsList: return "/api/fs/list"
+        case .fsReadText: return "/api/fs/read-text"
+        case .fsReadDataURL: return "/api/fs/read-data-url"
         case .fsWriteText: return "/api/fs/write-text"
-        case .fsDownload(let path): return "/api/fs/download" + queryString([.init(name: "path", value: path)])
+        case .fsDownload: return "/api/fs/download"
         case .fsDefaultCWD: return "/api/fs/default-cwd"
         case .filesUpload: return "/api/files/upload"
         case .filesUploadStream: return "/api/files/upload-stream"
@@ -177,10 +169,7 @@ enum HermesEndpoint: Equatable {
         case .gitBranches: return "/api/git/branches"
         case .gitSwitchBranch: return "/api/git/branch/switch"
         case .gitBaseBranches: return "/api/git/base-branches"
-        case .gitFileDiff(let path, let kind):
-            var items = [URLQueryItem(name: "path", value: path)]
-            if let kind { items.append(.init(name: "kind", value: kind)) }
-            return "/api/git/file-diff" + queryString(items)
+        case .gitFileDiff: return "/api/git/file-diff"
         case .gitReviewStage: return "/api/git/review/stage"
         case .gitReviewUnstage: return "/api/git/review/unstage"
         case .gitReviewCommit: return "/api/git/review/commit"
@@ -200,7 +189,7 @@ enum HermesEndpoint: Equatable {
         case .profile(let name): return "/api/profiles/\(name)"
         case .projectsTree: return "/api/profiles/projects/tree"
 
-        case .analyticsUsage(let days): return "/api/analytics/usage" + queryString([.init(name: "days", value: "\(days)")])
+        case .analyticsUsage: return "/api/analytics/usage"
         case .config: return "/api/config"
 
         case .kanbanBoards: return "/api/plugins/kanban/boards"
@@ -211,12 +200,69 @@ enum HermesEndpoint: Equatable {
         case .kanbanTask(let id): return "/api/plugins/kanban/tasks/\(id)"
         case .kanbanTaskUpdate(let id): return "/api/plugins/kanban/tasks/\(id)"
         case .kanbanTaskDelete(let id): return "/api/plugins/kanban/tasks/\(id)"
-        case .kanbanStats(let board): return "/api/plugins/kanban/stats" + queryString([.init(name: "board", value: board)])
+        case .kanbanStats: return "/api/plugins/kanban/stats"
         case .kanbanDispatch: return "/api/plugins/kanban/dispatch"
-        case .kanbanAssignees(let board): return "/api/plugins/kanban/assignees" + queryString([.init(name: "board", value: board)])
+        case .kanbanAssignees: return "/api/plugins/kanban/assignees"
         case .kanbanWorkersActive: return "/api/plugins/kanban/workers/active"
 
         case .updateCheck: return "/api/hermes/update/check"
+        }
+    }
+
+    var queryItems: [URLQueryItem] {
+        switch self {
+        case .validateToken:
+            return [URLQueryItem(name: "limit", value: "1")]
+
+        case .sessions(let limit, let offset, let full):
+            var items: [URLQueryItem] = []
+            if let limit { items.append(.init(name: "limit", value: "\(limit)")) }
+            if let offset { items.append(.init(name: "offset", value: "\(offset)")) }
+            if let full { items.append(.init(name: "full", value: full ? "true" : "false")) }
+            return items
+
+        case .sessionMessages(_, let limit, let offset):
+            var items: [URLQueryItem] = []
+            if let limit { items.append(.init(name: "limit", value: "\(limit)")) }
+            if let offset { items.append(.init(name: "offset", value: "\(offset)")) }
+            return items
+
+        case .sessionSearch(let query, let limit):
+            var items = [URLQueryItem(name: "q", value: query)]
+            if let limit { items.append(.init(name: "limit", value: "\(limit)")) }
+            return items
+
+        case .skillContent(let name, let file):
+            var items = [URLQueryItem(name: "name", value: name)]
+            if let file { items.append(.init(name: "file", value: file)) }
+            return items
+
+        case .toggleSkill(let name):
+            return [URLQueryItem(name: "name", value: name)]
+
+        case .fsList(let path), .fsReadText(let path), .fsReadDataURL(let path), .fsDownload(let path):
+            return [URLQueryItem(name: "path", value: path)]
+
+        case .gitStatus(let path), .gitBranches(let path), .gitWorktrees(let path), .gitBaseBranches(let path), .gitReviewList(let path):
+            return [URLQueryItem(name: "path", value: path)]
+
+        case .gitFileDiff(let path, let file):
+            return [
+                URLQueryItem(name: "path", value: path),
+                URLQueryItem(name: "file", value: file),
+            ]
+
+        case .analyticsUsage(let days):
+            return [URLQueryItem(name: "days", value: "\(days)")]
+
+        case .kanbanStats(let board):
+            return [URLQueryItem(name: "board", value: board)]
+
+        case .kanbanAssignees(let board):
+            return [URLQueryItem(name: "board", value: board)]
+
+        default:
+            return []
         }
     }
 
@@ -254,13 +300,10 @@ enum HermesEndpoint: Equatable {
     }
 
     func url(relativeTo base: URL) -> URL {
-        base.appending(path: path)
-    }
-
-    private func queryString(_ items: [URLQueryItem]) -> String {
-        guard !items.isEmpty else { return "" }
-        var components = URLComponents()
-        components.queryItems = items
-        return components.percentEncodedQuery.map { "?\($0)" } ?? ""
+        let url = base.appending(path: path)
+        guard !queryItems.isEmpty else { return url }
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.queryItems = queryItems
+        return components?.url ?? url
     }
 }
