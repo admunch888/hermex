@@ -14,8 +14,40 @@ extension APIClient {
         try await send(endpoint: .workspaces, method: "GET")
     }
 
+    /// Hermes project paths (`/api/profiles/projects/tree`) as cwd suggestions,
+    /// prefix-filtered. Kept in a plain helper (no generic `send`) per the
+    /// type-checker workaround pattern.
+    private func hermesWorkspaceSuggestions(prefix: String) async throws -> WorkspaceSuggestionsResponse {
+        guard let token = hermesSessionToken else { throw APIError.unauthorized }
+        let rest = HermesRESTClient(baseURL: baseURL, sessionToken: token)
+        let json = try await rest.projectsTree()
+        guard case .object(let object) = json,
+              case .array(let projectValues)? = object["projects"]
+        else {
+            return WorkspaceSuggestionsResponse(suggestions: nil, prefix: prefix)
+        }
+
+        var paths: [String] = []
+        for projectValue in projectValues {
+            guard case .object(let project) = projectValue,
+                  case .string(let path)? = project["path"]
+            else { continue }
+            let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            if prefix.isEmpty || trimmed.hasPrefix(prefix) {
+                paths.append(trimmed)
+            }
+        }
+        return WorkspaceSuggestionsResponse(suggestions: paths, prefix: prefix)
+    }
+
     func workspaceSuggestions(prefix: String) async throws -> WorkspaceSuggestionsResponse {
-        try await send(endpoint: .workspaceSuggestions(prefix: prefix), method: "GET")
+        if isHermesAgentServer {
+            // Hermes has no workspace registry or suggestions endpoint — offer
+            // the Hermes project paths as cwd suggestions instead.
+            return try await hermesWorkspaceSuggestions(prefix: prefix)
+        }
+        return try await send(endpoint: .workspaceSuggestions(prefix: prefix), method: "GET")
     }
 
     func addWorkspace(path: String, name: String? = nil, create: Bool? = nil) async throws -> WorkspaceMutationResponse {

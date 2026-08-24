@@ -138,8 +138,32 @@ actor HermesRESTClient {
         try await send(.modelOptions)
     }
 
+    /// POST /api/model/set — global model assignment (`scope` ∈ main/aux/moa).
+    func modelSet(scope: String, provider: String, model: String) async throws -> JSONValue {
+        try await send(.modelSet, body: .object([
+            "scope": .string(scope),
+            "provider": .string(provider),
+            "model": .string(model),
+        ]))
+    }
+
     func profiles() async throws -> JSONValue {
         try await send(.profiles)
+    }
+
+    /// GET /api/profiles/active — `{active: "<name>", current: "<name>"}`.
+    func activeProfile() async throws -> JSONValue {
+        try await send(.activeProfile)
+    }
+
+    /// POST /api/profiles/active — switch the active profile.
+    func switchActiveProfile(name: String) async throws -> JSONValue {
+        try await send(.switchActiveProfile, body: .object(["name": .string(name)]))
+    }
+
+    /// GET /api/profiles/projects/tree — `{projects: [{id, label, path, …}]}`.
+    func projectsTree() async throws -> JSONValue {
+        try await send(.projectsTree)
     }
 
     // MARK: - Git

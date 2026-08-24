@@ -144,7 +144,7 @@ struct DefaultModelPickerView: View {
 
     private func modelRow(_ model: ModelCatalogOption) -> some View {
         Button {
-            Task { await save(model.id) }
+            Task { await save(model.id, provider: group.providerID) }
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -228,7 +228,7 @@ struct DefaultModelPickerView: View {
         groups = groups.mergingLiveModels(from: live)
     }
 
-    private func save(_ model: String, isCustom: Bool = false) async {
+    private func save(_ model: String, isCustom: Bool = false, provider: String? = nil) async {
         let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -238,7 +238,7 @@ struct DefaultModelPickerView: View {
         selectedModel = trimmed
 
         do {
-            let response = try await APIClient(baseURL: server).saveDefaultModel(model: trimmed)
+            let response = try await APIClient(baseURL: server).saveDefaultModel(model: trimmed, provider: provider)
             if response.ok == true {
                 onSave(trimmed)
                 dismiss()

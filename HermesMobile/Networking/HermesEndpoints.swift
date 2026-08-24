@@ -96,6 +96,10 @@ enum HermesEndpoint: Equatable {
     case profiles
     case profile(name: String)
     case projectsTree
+    /// GET /api/profiles/active — the currently active profile.
+    case activeProfile
+    /// POST /api/profiles/active — switch the active profile (`{name}`).
+    case switchActiveProfile
 
     // MARK: Insights / config
     case analyticsUsage(days: Int)
@@ -188,6 +192,7 @@ enum HermesEndpoint: Equatable {
         case .profiles: return "/api/profiles"
         case .profile(let name): return "/api/profiles/\(name)"
         case .projectsTree: return "/api/profiles/projects/tree"
+        case .activeProfile, .switchActiveProfile: return "/api/profiles/active"
 
         case .analyticsUsage: return "/api/analytics/usage"
         case .config: return "/api/config"
@@ -274,7 +279,7 @@ enum HermesEndpoint: Equatable {
              .fsList, .fsReadText, .fsReadDataURL, .fsDownload, .fsDefaultCWD,
              .gitStatus, .gitBranches, .gitBaseBranches, .gitFileDiff, .gitReviewList, .gitWorktrees,
              .modelOptions, .modelInfo, .modelRecommendedDefault, .providersCustomEndpoints,
-             .profiles, .projectsTree, .analyticsUsage, .config,
+             .profiles, .projectsTree, .activeProfile, .analyticsUsage, .config,
              .kanbanBoards, .kanbanBoard, .kanbanConfig, .kanbanStats, .kanbanAssignees,
              .kanbanWorkersActive, .cronJobs, .cronJob, .cronJobRuns, .cronDeliveryTargets,
              .kanbanTasks, .kanbanTask, .profile,
@@ -294,7 +299,7 @@ enum HermesEndpoint: Equatable {
              .filesUploadStream, .gitSwitchBranch, .gitReviewStage, .gitReviewUnstage,
              .gitReviewCommit, .gitReviewPush, .gitReviewCreatePR, .gitReviewRevert,
              .modelSet, .kanbanSwitchBoard, .kanbanDispatch, .cronJobPause,
-             .cronJobResume, .cronJobTrigger:
+             .cronJobResume, .cronJobTrigger, .switchActiveProfile:
             return "POST"
         }
     }
