@@ -53,7 +53,7 @@ struct HermesVoiceTranscriber {
             "mime_type": mimeType,
         ])
 
-        let (responseData, response) = try await session.data(for: request)
+        let (responseData, response) = try await performTranscribe(request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.http(statusCode: -1, body: nil)
         }
@@ -78,5 +78,33 @@ struct HermesVoiceTranscriber {
             )
         }
         return try JSONDecoder().decode(TranscribeResponse.self, from: responseData)
+    }
+
+    /// One-shot transport-retry wrapper: a dead socket / tunnel blip mid-upload
+    /// surfaces as a raw `URLError` ("The network connection was lost"); the
+    /// upload is idempotent (pure transcription), so retrying once after a
+    /// short pause recovers from exactly that without masking real failures.
+    private func performTranscribe(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await session.data(for: request)
+        } catch let error as URLError {
+            guard error.isTransportFailure else { throw error }
+            try? await Task.sleep(for: .milliseconds(1000))
+            return try await session.data(for: request)
+        }
+    }
+}
+
+private extension URLError {
+    /// Transport-level failures worth one retry: the connection itself died or
+    /// was never established (vs. HTTP/auth/decoding problems).
+    var isTransportFailure: Bool {
+        switch code {
+        case .networkConnectionLost, .cannotConnectToHost, .notConnectedToInternet,
+             .dataNotAllowed, .dnsLookupFailed, .cannotFindHost, .timedOut:
+            return true
+        default:
+            return false
+        }
     }
 }

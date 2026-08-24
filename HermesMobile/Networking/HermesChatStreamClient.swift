@@ -137,21 +137,52 @@ final class HermesChatStreamClient: SSEStreamingClient {
                 if method != "session.resume",
                    rpcError.code == 4001,
                    let storedSessionID, !storedSessionID.isEmpty {
-                    try? await resumeSession(durableID: storedSessionID)
-                    // resumeSession may have reconnected the socket and minted
-                    // a fresh short sid — rebuild params and socket before retry.
-                    var retryParams = params
-                    if case .string(let stale)? = retryParams["session_id"],
-                       let fresh = sessionID, fresh != stale {
-                        retryParams["session_id"] = .string(fresh)
-                    }
-                    guard let freshWS = self.ws else { throw ChatError.notConnected }
-                    return try await freshWS.send(method: method, params: .object(retryParams))
+                    return try await retryAfterRecovery(method: method, params: params, waitForReconnect: false)
                 }
                 throw ChatError.remoteError(rpcError.localizedDescription)
             }
+            // .notConnected / .invalidResponse — surface as-is.
             throw error
+        } catch {
+            // Transport-level failure (URLError.networkConnectionLost etc.):
+            // the socket died mid-flight (server restart, tunnel blip, idle
+            // close). Wait for the client's auto-reconnect, then re-resume
+            // and retry once. session.resume is the recovery itself, and
+            // session.create already persisted server-side — retrying either
+            // would loop or mint a duplicate session.
+            guard method != "session.resume", method != "session.create" else { throw error }
+            return try await retryAfterRecovery(method: method, params: params, waitForReconnect: true)
         }
+    }
+
+    /// Reconnects (waiting out the client's own backoff when the socket died),
+    /// re-resumes the stored session in case the gateway reaped it while we
+    /// were away, and retries the original call with the fresh short sid.
+    private func retryAfterRecovery(
+        method: String,
+        params: [String: JSONValue],
+        waitForReconnect: Bool
+    ) async throws -> JSONValue {
+        if waitForReconnect, let ws {
+            var waited = 0.0
+            while ws.state != .connected && waited < 6 {
+                try? await Task.sleep(for: .milliseconds(200))
+                waited += 0.2
+            }
+            guard ws.state == .connected else { throw ChatError.notConnected }
+        }
+        if let storedSessionID, !storedSessionID.isEmpty {
+            // Re-resume by the durable id (mints a fresh short sid); failures
+            // are swallowed — the retry below surfaces the truth.
+            try? await resumeSession(durableID: storedSessionID)
+        }
+        var retryParams = params
+        if case .string(let stale)? = retryParams["session_id"],
+           let fresh = sessionID, fresh != stale {
+            retryParams["session_id"] = .string(fresh)
+        }
+        guard let freshWS = self.ws else { throw ChatError.notConnected }
+        return try await freshWS.send(method: method, params: .object(retryParams))
     }
 
     // MARK: - Session lifecycle (RPC)
