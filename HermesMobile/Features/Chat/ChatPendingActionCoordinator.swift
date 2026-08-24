@@ -264,7 +264,21 @@ final class ChatPendingActionCoordinator {
         renderClarificationPromptForCurrentSession()
     }
 
+    /// Hermes serves approvals/clarifications as WS events on the MAIN chat
+    /// stream (routed here via `streamCoordinatorApplyApprovalUpdate` /
+    /// `streamCoordinatorApplyClarificationUpdate`). The webui-style auxiliary
+    /// SSE streams don't exist there, and because every Hermes stream client
+    /// resolves to the SAME shared store instance as the main stream,
+    /// `start()`/`stop()` on them would clobber the main event sink or kill
+    /// the shared socket. Auxiliary monitoring is therefore skipped entirely
+    /// on Hermes (the stop paths are automatically safe: the monitoring
+    /// session IDs and polling tasks below stay nil).
+    private var pendingActionsFlowThroughMainStream: Bool {
+        client.isHermesAgentServer
+    }
+
     private func startApprovalMonitoring() {
+        guard !pendingActionsFlowThroughMainStream else { return }
         guard let sessionID = delegate?.pendingActionSessionID,
               delegate?.pendingActionHasActiveStream == true,
               approvalMonitoringSessionID != sessionID
@@ -307,6 +321,10 @@ final class ChatPendingActionCoordinator {
     }
 
     private func startApprovalFallbackPolling(sessionID: String) {
+        // Hermes: approvals flow through the main stream; never touch the
+        // shared client's socket here (unreachable on Hermes, guarded for
+        // defense in depth — stop() would kill the main chat stream).
+        guard !pendingActionsFlowThroughMainStream else { return }
         guard approvalMonitoringSessionID == sessionID else { return }
 
         approvalStreamClient.stop()
@@ -364,6 +382,7 @@ final class ChatPendingActionCoordinator {
     }
 
     private func startClarificationMonitoring() {
+        guard !pendingActionsFlowThroughMainStream else { return }
         guard let sessionID = delegate?.pendingActionSessionID,
               delegate?.pendingActionHasActiveStream == true,
               clarificationMonitoringSessionID != sessionID
@@ -413,6 +432,10 @@ final class ChatPendingActionCoordinator {
     }
 
     private func startClarificationFallbackPolling(sessionID: String) {
+        // Hermes: clarifications flow through the main stream; never touch
+        // the shared client's socket here (unreachable on Hermes, guarded for
+        // defense in depth — stop() would kill the main chat stream).
+        guard !pendingActionsFlowThroughMainStream else { return }
         guard clarificationMonitoringSessionID == sessionID else { return }
 
         clarifyStreamClient.stop()

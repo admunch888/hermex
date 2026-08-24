@@ -141,7 +141,21 @@ extension APIClient {
     ) async throws -> SessionResponse {
         guard let token = hermesSessionToken else { throw APIError.unauthorized }
         let rest = HermesRESTClient(baseURL: baseURL, sessionToken: token)
-        let detailJSON = try await rest.session(id: id)
+        let detailJSON: JSONValue
+        do {
+            detailJSON = try await rest.session(id: id)
+        } catch let error as HermesRESTClient.RESTError {
+            if case .http(let statusCode, _) = error, statusCode == 404 {
+                // A session created on this connection but not yet persisted
+                // (no DB row until the first prompt) 404s on GET. It's a valid
+                // empty session — return an empty detail instead of erroring.
+                return try Self.decodeResponse(SessionResponse.self, from: [
+                    "session": ["session_id": id],
+                    "messages": [],
+                ])
+            }
+            throw error
+        }
         guard case .object(let detail) = detailJSON else {
             throw APIError.decoding(underlying: DecodingError.dataCorrupted(
                 .init(codingPath: [], debugDescription: "Hermes session detail is not an object")

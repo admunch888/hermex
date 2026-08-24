@@ -452,9 +452,16 @@ final class ChatViewModel {
 
     /// The transport for this chat: the Hermes WS JSON-RPC client when the
     /// active server is a Hermes Agent (Nous) server, else the webui SSE client.
+    ///
+    /// For Hermes this MUST resolve through `HermesChatSessionStore` (not a
+    /// fresh instance): the REST `APIClient` resolves its control client from
+    /// the same store, so the UI's stream client and the client that submits
+    /// prompts are the SAME WS connection — events reach the sink. A fresh
+    /// instance here would connect a second socket that never receives the
+    /// session's events.
     private static func defaultStreamClient(for server: URL) -> SSEStreamingClient {
         if let token = HermesChatStreamClient.configuredToken {
-            return HermesChatStreamClient(baseURL: server, token: token)
+            return HermesChatSessionStore.client(for: server, token: token)
         }
         return SSEClient()
     }

@@ -128,6 +128,26 @@ final class HermesChatStreamClient: SSEStreamingClient {
             return try await ws.send(method: method, params: .object(params))
         } catch let error as HermesWebSocketClient.ClientError {
             if case .remoteError(let rpcError) = error {
+                // The gateway reaps sessions on WS disconnect (orphan-reap,
+                // idle TTL) and expects clients to recover by re-resuming the
+                // STORED session id (tui_gateway/server.py _sess_nowait). A
+                // reconnect + stale short sid lands here as 4001 "session
+                // not found" — re-resume and retry once instead of surfacing
+                // the error to the user.
+                if method != "session.resume",
+                   rpcError.code == 4001,
+                   let storedSessionID, !storedSessionID.isEmpty {
+                    try? await resumeSession(durableID: storedSessionID)
+                    // resumeSession may have reconnected the socket and minted
+                    // a fresh short sid — rebuild params and socket before retry.
+                    var retryParams = params
+                    if case .string(let stale)? = retryParams["session_id"],
+                       let fresh = sessionID, fresh != stale {
+                        retryParams["session_id"] = .string(fresh)
+                    }
+                    guard let freshWS = self.ws else { throw ChatError.notConnected }
+                    return try await freshWS.send(method: method, params: .object(retryParams))
+                }
                 throw ChatError.remoteError(rpcError.localizedDescription)
             }
             throw error

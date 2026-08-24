@@ -212,6 +212,11 @@ extension APIClient {
                 profile: profile,
                 cwd: workspace
             )
+        } else if await hermes.storedSessionID == sessionID {
+            // The session was created moments ago on THIS WS connection
+            // (no DB row until the first prompt) — resuming it would 4007
+            // "session not found". The live session is already held.
+            storedID = sessionID
         } else {
             try await hermes.resumeSession(durableID: sessionID)
             storedID = await hermes.storedSessionID ?? sessionID
