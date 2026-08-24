@@ -61,6 +61,7 @@ struct SettingsView: View {
     @AppStorage(AppHaptics.isEnabledKey) private var isHapticsEnabled = true
     @AppStorage(ResponseCompletionNotifications.isEnabledKey) private var isResponseCompletionNotificationsEnabled = false
     @AppStorage(ResponseCompletionNotifications.hasRequestedPermissionKey) private var hasRequestedResponseCompletionNotificationPermission = false
+    @AppStorage(AutoSpeakReplies.isEnabledKey) private var autoSpeakRepliesEnabled = AutoSpeakReplies.defaultValue
     @AppStorage(AgentRunLiveActivityPrivacy.showsResponseExcerptsKey) private var showsLiveActivityResponseExcerpts = false
     @AppStorage(SessionRowDisplaySettings.showMessageCountKey) private var showsSessionMessageCount = true
     @AppStorage(SessionRowDisplaySettings.showWorkspaceKey) private var showsSessionWorkspace = true
@@ -169,6 +170,16 @@ struct SettingsView: View {
                     if let notificationStatusText {
                         SettingsFootnote(notificationStatusText)
                     }
+
+                    SettingsDivider()
+
+                    SettingsToggleRow(
+                        title: String(localized: "Auto-Play Replies"),
+                        systemImage: "speaker.wave.2",
+                        isOn: $autoSpeakRepliesEnabled
+                    )
+
+                    SettingsFootnote(String(localized: "Speak assistant replies aloud as they finish, using the server's TTS voice."))
 
                     SettingsDivider()
 

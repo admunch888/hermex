@@ -398,6 +398,13 @@ struct MessageComposerView: View {
             // "New Chat with Voice" intent once its session is created) — start here.
             autoStartVoiceInputIfNeeded()
         }
+        .onAppear {
+            // Silence auto-stop: when the recorder finishes the clip on its own,
+            // send it exactly like a finger release (never cancel-armed).
+            voiceNoteRecorder.onAutoFinished = { note in
+                onSendVoiceNote(note.data, note.filename)
+            }
+        }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase != .active {
                 voiceInput.stopBeforeSubmittingDraft()

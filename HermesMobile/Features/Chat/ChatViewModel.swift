@@ -417,6 +417,9 @@ final class ChatViewModel {
     // starting audio the user no longer wants.
     private var activeListenRequestID: UUID?
     private var listenPlaybackTitle = String(localized: "Hermex response")
+    /// True once the current response reached a normal `.done` (vs. cancelled /
+    /// transport-failed). Auto-play speaks only normally-completed responses.
+    private var lastResponseCompletedNormally = false
     private(set) var listenPlaybackPhase: ListenPlaybackPhase = .idle
     private(set) var listenPlaybackElapsedTime: TimeInterval = 0
     private(set) var listenPlaybackDuration: TimeInterval = 0
@@ -2207,6 +2210,7 @@ final class ChatViewModel {
         toolCallAnchorMessageID = nil
         streamCoordinator.prepareForNewResponse()
         responseCompletionNeedsTranscriptRefresh = false
+        lastResponseCompletedNormally = false
         defer { isStartingChat = false }
 
         let optimisticMessage = ChatMessage(
@@ -3173,6 +3177,7 @@ final class ChatViewModel {
         toolCallAnchorMessageID = nil
         streamCoordinator.prepareForNewResponse()
         responseCompletionNeedsTranscriptRefresh = false
+        lastResponseCompletedNormally = false
         defer { isStartingChat = false }
 
         do {
@@ -3701,6 +3706,60 @@ final class ChatViewModel {
             }
             self.clearListenPlaybackState()
             self.speakWithOnDeviceSynthesizer(listenText)
+        }
+    }
+
+    /// Auto-play: speaks the last completed assistant response when "Auto-Play
+    /// Replies" is enabled and the response finished normally (`.done`, not a
+    /// cancel or transport failure). Reuses the Listen pipeline — server TTS
+    /// with the on-device synthesizer as the silent fallback.
+    private func autoSpeakLastAssistantResponseIfEnabled() {
+        guard lastResponseCompletedNormally,
+              AutoSpeakReplies.stored(in: userDefaults),
+              !isViewingCachedData,
+              let text = lastAssistantResponseText
+        else { return }
+        // Speak each response at most once, even if a later refresh re-finishes.
+        lastResponseCompletedNormally = false
+        autoSpeakText(text)
+    }
+
+    /// The final content of the most recent assistant message, if any.
+    private var lastAssistantResponseText: String? {
+        guard let content = messages.last(where: { $0.role == "assistant" })?.content else { return nil }
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Speaks `text` with the same policy as the Listen action: server neural
+    /// TTS first, on-device synthesizer as the fallback.
+    private func autoSpeakText(_ text: String) {
+        stopListening()
+        guard ServerTTSPolicy.shouldUseServerTTS(for: text) else {
+            clearListenPlaybackState()
+            speakWithOnDeviceSynthesizer(text)
+            return
+        }
+
+        let requestID = UUID()
+        activeListenRequestID = requestID
+        listenPreparationTask = Task { [weak self, client] in
+            guard !Task.isCancelled else { return }
+            let audioData: Data?
+            do {
+                audioData = try await client.synthesizeSpeech(
+                    text: text,
+                    voice: ServerTTSPolicy.defaultVoice
+                )
+            } catch {
+                audioData = nil
+            }
+            guard let self, !Task.isCancelled, self.activeListenRequestID == requestID else { return }
+            if let audioData, self.startServerAudioPlayback(audioData, title: self.listenPlaybackTitle) {
+                return
+            }
+            self.clearListenPlaybackState()
+            self.speakWithOnDeviceSynthesizer(text)
         }
     }
 
@@ -5060,11 +5119,13 @@ extension ChatViewModel: ChatStreamCoordinatorDelegate {
     func streamCoordinatorDidCompleteCurrentResponse(needsTranscriptRefresh: Bool) {
         responseCompletionNeedsTranscriptRefresh = needsTranscriptRefresh
         responseCompletionHapticTrigger += 1
+        lastResponseCompletedNormally = true
     }
 
     func streamCoordinatorDidFinishStream() {
         flushPendingStreamingContent()
         responseCompletionNeedsTranscriptRefresh = false
+        autoSpeakLastAssistantResponseIfEnabled()
     }
 
     func streamCoordinatorDidReceiveErrorMessage(_ message: String) {

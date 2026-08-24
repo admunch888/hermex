@@ -181,6 +181,18 @@ enum ResponseCompletionNotifications {
     static let hasRequestedPermissionKey = "responseCompletionNotifications.hasRequestedPermission"
 }
 
+/// "Auto-Play Replies": speak each completed assistant response aloud via the
+/// server's TTS (same pipeline as the manual Listen action). Off by default.
+enum AutoSpeakReplies {
+    static let isEnabledKey = "autoSpeakReplies.isEnabled"
+    static let defaultValue = false
+
+    static func stored(in userDefaults: UserDefaults) -> Bool {
+        if userDefaults.object(forKey: isEnabledKey) == nil { return defaultValue }
+        return userDefaults.bool(forKey: isEnabledKey)
+    }
+}
+
 enum AgentRunLiveActivityPrivacy {
     static let showsResponseExcerptsKey = "agentRunLiveActivity.showsResponseExcerpts"
 }

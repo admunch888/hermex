@@ -30,14 +30,38 @@ final class ComposerVoiceNoteRecorder {
     /// Clips shorter than this are treated as accidental taps and discarded.
     static let minimumDuration: TimeInterval = 0.5
 
+    // MARK: - Silence auto-stop
+    //
+    // "Voice conversation" behavior (#port): once the user has actually spoken,
+    // a sustained pause auto-finishes the clip and sends it — no release needed.
+    // Hold-to-talk still works (releasing early finishes sooner); thresholds are
+    // deliberately conservative so a deliberate mid-sentence pause doesn't cut.
+
+    /// Metering tick cadence (matches the elapsed ticker).
+    static let tickInterval: TimeInterval = 0.1
+    /// Average power (dB) at or below which the channel counts as silent.
+    /// Speech typically sits around −30…−10 dB; room noise ~−60…−45 dB.
+    static let silenceLevelThreshold: Float = -45
+    /// Continuous silence (after speech) required before auto-finishing.
+    static let silenceAutoStopDuration: TimeInterval = 1.2
+    /// Minimum recorded duration before silence auto-stop may fire, so a
+    /// "tap the mic then go quiet" never instantly finishes a near-empty clip.
+    static let minimumDurationBeforeAutoStop: TimeInterval = 0.8
+
     private(set) var state: State = .idle
     private(set) var elapsed: TimeInterval = 0
     private(set) var errorMessage: String?
+
+    /// Called when silence auto-stop finishes the clip (the view sends it, same
+    /// as a release). Not called on manual `finish()`/`cancel()`.
+    var onAutoFinished: ((RecordedVoiceNote) -> Void)?
 
     @ObservationIgnored private var recorder: AVAudioRecorder?
     @ObservationIgnored private var fileURL: URL?
     @ObservationIgnored private var ticker: Timer?
     @ObservationIgnored private var didActivateSession = false
+    @ObservationIgnored private var silenceSince: TimeInterval = 0
+    @ObservationIgnored private var hasDetectedSpeech = false
     @ObservationIgnored private let recorderFactory: (URL) throws -> AVAudioRecorder
     @ObservationIgnored private let permissionRequester: () async -> Bool
     private let logger = Logger(
@@ -72,6 +96,8 @@ final class ComposerVoiceNoteRecorder {
         guard state == .idle else { return }
         errorMessage = nil
         elapsed = 0
+        silenceSince = 0
+        hasDetectedSpeech = false
         state = .requestingPermission
 
         let granted = await permissionRequester()
@@ -142,6 +168,7 @@ final class ComposerVoiceNoteRecorder {
 
         let url = Self.makeTemporaryFileURL()
         let recorder = try recorderFactory(url)
+        recorder.isMeteringEnabled = true
         recorder.prepareToRecord()
         guard recorder.record() else {
             throw ComposerVoiceNoteRecorderError.couldNotStart
@@ -176,6 +203,8 @@ final class ComposerVoiceNoteRecorder {
     private func resetState() {
         state = .idle
         elapsed = 0
+        silenceSince = 0
+        hasDetectedSpeech = false
     }
 
     private func fail(_ message: String) {
@@ -199,6 +228,30 @@ final class ComposerVoiceNoteRecorder {
     private func tick() {
         guard let recorder, recorder.isRecording else { return }
         elapsed = recorder.currentTime
+
+        // Silence auto-stop: read the input level, accumulate continuous silence,
+        // and finish once the user has really spoken AND then paused long enough.
+        // `hasDetectedSpeech` keeps a silent "tap and stay quiet" from ever
+        // auto-finishing an empty clip — only a genuine speak-then-pause does.
+        recorder.updateMeters()
+        let power = recorder.averagePower(forChannel: 0)
+        if power > Self.silenceLevelThreshold {
+            hasDetectedSpeech = true
+        }
+        if power <= Self.silenceLevelThreshold {
+            silenceSince += Self.tickInterval
+        } else {
+            silenceSince = 0
+        }
+        guard hasDetectedSpeech,
+              elapsed >= Self.minimumDurationBeforeAutoStop,
+              silenceSince >= Self.silenceAutoStopDuration
+        else { return }
+
+        silenceSince = 0
+        if let note = finish() {
+            onAutoFinished?(note)
+        }
     }
 
     private func stopTicker() {
