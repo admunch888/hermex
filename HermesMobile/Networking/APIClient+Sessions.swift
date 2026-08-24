@@ -450,6 +450,30 @@ extension APIClient {
         model: String?,
         modelProvider: String?
     ) async throws -> SessionResponse {
+        if isHermesAgentServer {
+            return try await hermesUpdateSession(
+                id: id,
+                workspace: workspace,
+                model: model,
+                modelProvider: modelProvider
+            )
+        }
+        return try await webuiUpdateSession(
+            id: id,
+            workspace: workspace,
+            model: model,
+            modelProvider: modelProvider
+        )
+    }
+
+    /// WebUI session update — generic `send` stays in a branch-free helper to
+    /// dodge the Swift 6.3 type-checker crash.
+    private func webuiUpdateSession(
+        id: String,
+        workspace: String?,
+        model: String?,
+        modelProvider: String?
+    ) async throws -> SessionResponse {
         try await send(
             endpoint: .updateSession,
             method: "POST",
@@ -460,6 +484,33 @@ extension APIClient {
                 modelProvider: modelProvider
             )
         )
+    }
+
+    /// Hermes Agent path: `POST /api/session/update` doesn't exist (405 — the
+    /// route is a GET-only webui stub). Hermes assigns the model per-session at
+    /// `session.create` (no mid-session model RPC), but the workspace is
+    /// switchable live via `session.cwd.set`. Apply the cwd when provided and
+    /// echo the requested values so the composer's optimistic UI settles.
+    private func hermesUpdateSession(
+        id: String,
+        workspace: String?,
+        model: String?,
+        modelProvider: String?
+    ) async throws -> SessionResponse {
+        if let workspace, !workspace.isEmpty {
+            try? await hermesChatClient().setCWD(workspace)
+        }
+        let data = try JSONSerialization.data(withJSONObject: [
+            "session": [
+                "session_id": id,
+                "workspace": workspace ?? "",
+                "model": model ?? "",
+                "model_provider": modelProvider ?? "",
+            ],
+        ])
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(SessionResponse.self, from: data)
     }
 
     func moveSession(id: String, projectID: String?) async throws -> SessionMutationResponse {

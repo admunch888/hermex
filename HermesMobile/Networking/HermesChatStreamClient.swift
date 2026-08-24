@@ -171,6 +171,15 @@ final class HermesChatStreamClient: SSEStreamingClient {
         }
     }
 
+    /// Changes the live session's working directory (`session.cwd.set`).
+    func setCWD(_ path: String) async throws {
+        try await ensureConnected()
+        _ = try await rpc("session.cwd.set", [
+            "session_id": .string(sessionID ?? ""),
+            "cwd": .string(path),
+        ])
+    }
+
     // MARK: - Turn control (RPC)
 
     /// Sends a user message. Events stream back through the event sink.
