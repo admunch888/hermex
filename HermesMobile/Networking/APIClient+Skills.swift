@@ -59,11 +59,47 @@ extension APIClient {
     }
 
     func toggleSkill(name: String, enabled: Bool) async throws -> ToggleSkillResponse {
+        if isHermesAgentServer {
+            return try await hermesToggleSkill(name: name, enabled: enabled)
+        }
+        return try await webuiToggleSkill(name: name, enabled: enabled)
+    }
+
+    /// WebUI skill toggle — generic `send` stays in a branch-free helper to
+    /// dodge the Swift 6.3 type-checker crash.
+    private func webuiToggleSkill(name: String, enabled: Bool) async throws -> ToggleSkillResponse {
         try await send(
             endpoint: .toggleSkill,
             method: "POST",
             body: ToggleSkillRequest(name: name, enabled: enabled)
         )
+    }
+
+    /// Hermes Agent path: `/api/skills/toggle` is **PUT** (not the webui's
+    /// POST) — verified live against v0.20.5. The HermesRESTClient's POST-only
+    /// helper can't express it, so build the request directly.
+    private func hermesToggleSkill(name: String, enabled: Bool) async throws -> ToggleSkillResponse {
+        guard let token = hermesSessionToken else { throw APIError.unauthorized }
+        var request = URLRequest(url: HermesEndpoint.toggleSkill(name: name).url(relativeTo: baseURL))
+        request.httpMethod = "PUT"
+        request.setValue(token, forHTTPHeaderField: "X-Hermes-Session-Token")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(ToggleSkillRequest(name: name, enabled: enabled))
+        request.timeoutInterval = 30
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.http(statusCode: -1, body: nil)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(
+                statusCode: http.statusCode,
+                body: String(data: data, encoding: .utf8)
+            )
+        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(ToggleSkillResponse.self, from: data)
     }
 }
 
