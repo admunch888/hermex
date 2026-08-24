@@ -2430,12 +2430,36 @@ final class ChatViewModel {
                 return await createSessionFromSlashCommand()
             case .help:
                 return .executed(message: Self.slashCommandHelpText)
+            case .voice:
+                return toggleVoiceModeFromSlashCommand(args)
             }
         case .serverSide(let action):
             return await executeServerSideSlashCommand(action, args: args)
         case .unsupported:
             return .unsupported(friendlyMessage: SlashCommandExecutor.unsupportedMessage(for: command.name))
         }
+    }
+
+    /// Toggles the app's "voice mode" (Auto-Play Replies): when on, each
+    /// completed assistant response is spoken aloud via server TTS. Maps the
+    /// WebUI/CLI `/voice` toggle to the client-side `AutoSpeakReplies` setting.
+    /// Accepts an optional argument (`on`/`off`, `enable`/`disable`, `1`/`0`,
+    /// `true`/`false`, `yes`/`no`); with no argument it flips the current state.
+    private func toggleVoiceModeFromSlashCommand(_ args: String) -> SlashCommandExecutionResult {
+        let current = AutoSpeakReplies.stored(in: userDefaults)
+        let enabled: Bool
+        switch args.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "on", "enable", "1", "true", "yes":
+            enabled = true
+        case "off", "disable", "0", "false", "no":
+            enabled = false
+        default:
+            enabled = !current
+        }
+        userDefaults.set(enabled, forKey: AutoSpeakReplies.isEnabledKey)
+        return .executed(message: enabled
+            ? String(localized: "Voice mode is on — replies will be spoken aloud.")
+            : String(localized: "Voice mode is off."))
     }
 
     private func executeServerSideSlashCommand(

@@ -51,6 +51,12 @@ enum SlashCommandCatalog {
             handler: .clientSide(.stop)
         ),
         SlashCommand(
+            name: "voice",
+            description: String(localized: "Toggle voice mode (speak replies aloud)"),
+            noEcho: true,
+            handler: .clientSide(.voice)
+        ),
+        SlashCommand(
             name: "title",
             description: String(localized: "Rename the current session"),
             argHint: String(localized: "name"),

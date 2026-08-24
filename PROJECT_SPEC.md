@@ -563,7 +563,9 @@ Each phase ends in a working, committable state. Run on the simulator after ever
 - `/undo` (no-echo) — Undo last exchange.
 - `/branch [name]` (no-echo) — Fork conversation.
 
-**Unsupported with friendly inline message:** `/terminal`, `/theme`, `/voice`, `/yolo`, `/skill`.
+- `/voice [on|off]` (no-echo) — Toggle voice mode (auto-speak replies aloud via server TTS).
+
+**Unsupported with friendly inline message:** `/terminal`, `/theme`, `/yolo`, `/skill`.
 
 ### Phase 10 — Read-only server panels (2–3 days)
 **Classification:** required before polish/TestFlight.

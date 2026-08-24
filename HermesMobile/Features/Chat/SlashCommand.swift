@@ -41,6 +41,7 @@ enum ClientSideAction: String, Equatable {
     case stop
     case new
     case help
+    case voice
 }
 
 enum ServerSideAction: String, Equatable {
