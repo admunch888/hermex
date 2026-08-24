@@ -1,6 +1,17 @@
 import Foundation
 
 extension APIClient {
+    /// Resolves the shared Hermes WS chat client for this server (creates it
+    /// on first use and reuses it for subsequent control calls).
+    func hermesChatClient() async throws -> HermesChatStreamClient {
+        guard let token = hermesSessionToken else {
+            throw APIError.http(statusCode: 401, body: "Missing Hermes session token.")
+        }
+        return await HermesChatSessionStore.client(for: baseURL, token: token)
+    }
+
+    // MARK: - Chat lifecycle (Hermes Agent branches)
+
     func startChat(
         sessionID: String,
         message: String,
@@ -11,7 +22,18 @@ extension APIClient {
         explicitModelPick: Bool = false,
         attachments: [JSONValue]? = nil
     ) async throws -> ChatStartResponse {
-        try await send(
+        if isHermesAgentServer {
+            return try await hermesStartChat(
+                sessionID: sessionID,
+                message: message,
+                workspace: workspace,
+                model: model,
+                modelProvider: modelProvider,
+                profile: profile,
+                attachments: attachments
+            )
+        }
+        return try await send(
             endpoint: .chatStart,
             method: "POST",
             body: ChatStartRequest(
@@ -43,7 +65,10 @@ extension APIClient {
     }
 
     func cancelChat(streamID: String) async throws -> ChatCancelResponse {
-        try await send(endpoint: .chatCancel(streamID: streamID), method: "GET")
+        if isHermesAgentServer {
+            return try await hermesCancelChat(streamID: streamID)
+        }
+        return try await send(endpoint: .chatCancel(streamID: streamID), method: "GET")
     }
 
     func chatStreamStatus(streamID: String) async throws -> ChatStreamStatusResponse {
@@ -51,7 +76,12 @@ extension APIClient {
     }
 
     func approvalPending(sessionID: String) async throws -> ApprovalPendingResponse {
-        try await send(endpoint: .approvalPending(sessionID: sessionID), method: "GET")
+        if isHermesAgentServer {
+            // Approvals arrive as WS approval.request events on the chat
+            // stream; the webui-style REST poll is a no-op on Hermes.
+            return ApprovalPendingResponse(pending: nil, pendingCount: 0)
+        }
+        return try await send(endpoint: .approvalPending(sessionID: sessionID), method: "GET")
     }
 
     nonisolated func approvalStreamURL(sessionID: String) -> URL {
@@ -63,7 +93,10 @@ extension APIClient {
         choice: ApprovalChoice,
         approvalID: String?
     ) async throws -> ApprovalRespondResponse {
-        try await send(
+        if isHermesAgentServer {
+            return try await hermesRespondApproval(choice: choice, approvalID: approvalID)
+        }
+        return try await send(
             endpoint: .approvalRespond,
             method: "POST",
             body: ApprovalRespondRequest(
@@ -75,7 +108,10 @@ extension APIClient {
     }
 
     func clarifyPending(sessionID: String) async throws -> ClarificationPendingResponse {
-        try await send(endpoint: .clarifyPending(sessionID: sessionID), method: "GET")
+        if isHermesAgentServer {
+            return ClarificationPendingResponse(pending: nil, pendingCount: nil)
+        }
+        return try await send(endpoint: .clarifyPending(sessionID: sessionID), method: "GET")
     }
 
     nonisolated func clarifyStreamURL(sessionID: String) -> URL {
@@ -87,7 +123,10 @@ extension APIClient {
         response: String,
         clarifyID: String?
     ) async throws -> ClarificationRespondResponse {
-        try await send(
+        if isHermesAgentServer {
+            return try await hermesRespondClarification(response: response, clarifyID: clarifyID)
+        }
+        return try await send(
             endpoint: .clarifyRespond,
             method: "POST",
             body: ClarificationRespondRequest(
@@ -99,7 +138,10 @@ extension APIClient {
     }
 
     func steerChat(sessionID: String, text: String) async throws -> ChatSteerResponse {
-        try await send(
+        if isHermesAgentServer {
+            return try await hermesSteer(text: text)
+        }
+        return try await send(
             endpoint: .chatSteer,
             method: "POST",
             body: ChatSteerRequest(sessionId: sessionID, text: text)
@@ -146,6 +188,66 @@ extension APIClient {
 
     func backgroundStatus(sessionID: String) async throws -> BackgroundStatusResponse {
         try await send(endpoint: .backgroundStatus(sessionID: sessionID), method: "GET")
+    }
+
+    // MARK: - Hermes Agent helpers (kept out of the methods above because the
+    // Swift type-checker crashes on a generic `send` call in a function whose
+    // control flow first awaits MainActor-isolated code).
+
+    private func hermesStartChat(
+        sessionID: String,
+        message: String,
+        workspace: String?,
+        model: String?,
+        modelProvider: String?,
+        profile: String?,
+        attachments: [JSONValue]?
+    ) async throws -> ChatStartResponse {
+        let hermes = try await hermesChatClient()
+        let storedID: String
+        if sessionID.isEmpty {
+            storedID = try await hermes.createSession(
+                model: model,
+                provider: modelProvider,
+                profile: profile,
+                cwd: workspace
+            )
+        } else {
+            try await hermes.resumeSession(durableID: sessionID)
+            storedID = await hermes.storedSessionID ?? sessionID
+        }
+        try await hermes.submit(text: message)
+        return ChatStartResponse(streamId: storedID, sessionId: storedID, error: nil)
+    }
+
+    private func hermesCancelChat(streamID: String) async throws -> ChatCancelResponse {
+        let hermes = try await hermesChatClient()
+        try await hermes.interrupt()
+        return ChatCancelResponse(ok: true, cancelled: true, streamId: streamID, error: nil)
+    }
+
+    private func hermesSteer(text: String) async throws -> ChatSteerResponse {
+        let hermes = try await hermesChatClient()
+        try await hermes.steer(text: text)
+        return ChatSteerResponse(accepted: true, fallback: nil, streamId: nil, error: nil)
+    }
+
+    private func hermesRespondApproval(choice: ApprovalChoice, approvalID: String?) async throws -> ApprovalRespondResponse {
+        let hermes = try await hermesChatClient()
+        try await hermes.respondApproval(choice: choice, approvalID: approvalID)
+        return try Self.decodeResponse(ApprovalRespondResponse.self, from: [
+            "ok": true,
+            "choice": choice.rawValue,
+        ])
+    }
+
+    private func hermesRespondClarification(response: String, clarifyID: String?) async throws -> ClarificationRespondResponse {
+        let hermes = try await hermesChatClient()
+        try await hermes.respondClarification(response: response, clarifyID: clarifyID)
+        return try Self.decodeResponse(ClarificationRespondResponse.self, from: [
+            "ok": true,
+            "response": response,
+        ])
     }
 }
 

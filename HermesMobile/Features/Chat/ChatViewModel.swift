@@ -450,6 +450,15 @@ final class ChatViewModel {
     private var needsComposerConfigurationReload = false
     private var pendingExplicitModelPick = false
 
+    /// The transport for this chat: the Hermes WS JSON-RPC client when the
+    /// active server is a Hermes Agent (Nous) server, else the webui SSE client.
+    private static func defaultStreamClient(for server: URL) -> SSEStreamingClient {
+        if let token = HermesChatStreamClient.configuredToken {
+            return HermesChatStreamClient(baseURL: server, token: token)
+        }
+        return SSEClient()
+    }
+
     init(
         session: SessionSummary,
         server: URL,
@@ -478,7 +487,7 @@ final class ChatViewModel {
         isCLISession = session.isCliSession == true
         self.server = server
         let resolvedClient = client ?? APIClient(baseURL: server)
-        let resolvedStreamClient = streamClient ?? SSEClient()
+        let resolvedStreamClient = streamClient ?? Self.defaultStreamClient(for: server)
         let resolvedLiveActivityManager = liveActivityManager ?? AgentLiveActivityManager.shared
         self.client = resolvedClient
         self.streamCoordinator = ChatStreamCoordinator(
@@ -489,12 +498,12 @@ final class ChatViewModel {
         )
         self.pendingActionCoordinator = ChatPendingActionCoordinator(
             client: resolvedClient,
-            approvalStreamClient: approvalStreamClient ?? SSEClient(),
-            clarifyStreamClient: clarifyStreamClient ?? SSEClient(),
+            approvalStreamClient: approvalStreamClient ?? Self.defaultStreamClient(for: server),
+            clarifyStreamClient: clarifyStreamClient ?? Self.defaultStreamClient(for: server),
             pollingIntervals: pollingIntervals
         )
         self.attachmentCoordinator = ChatAttachmentCoordinator(client: resolvedClient)
-        self.btwStreamClient = btwStreamClient ?? SSEClient()
+        self.btwStreamClient = btwStreamClient ?? Self.defaultStreamClient(for: server)
         self.liveActivityManager = resolvedLiveActivityManager
         self.showsLiveActivityResponseExcerpts = showsLiveActivityResponseExcerpts
         self.pollingIntervals = pollingIntervals
@@ -2052,6 +2061,52 @@ final class ChatViewModel {
         guard let sessionID else {
             setUploadAttachmentError(String(localized: "The server did not provide a session ID."))
             return false
+        }
+
+        // Hermes Agent servers: transcribe via /api/audio/transcribe (JSON
+        // data_url) and send the transcript as a plain text message. The clip
+        // attachment path is hermes-webui-only, and audio never reaches the
+        // model — the transcript IS the message (same UX as the desktop app).
+        if HermesChatStreamClient.configuredToken != nil {
+            isSendingVoiceNote = true
+            setUploadAttachmentError(nil)
+            sendErrorMessage = nil
+            lastError = nil
+            defer { isSendingVoiceNote = false }
+
+            let transcriber = HermesVoiceTranscriber(
+                baseURL: server,
+                sessionTokenProvider: { HermesChatStreamClient.configuredToken }
+            )
+            let response: TranscribeResponse
+            do {
+                response = try await transcriber.transcribe(data: audioData)
+            } catch {
+                lastError = error
+                setUploadAttachmentError(error.localizedDescription)
+                return false
+            }
+            if let serverError = response.error?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !serverError.isEmpty {
+                setUploadAttachmentError(serverError)
+                return false
+            }
+            let text = (response.transcript ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else {
+                setUploadAttachmentError(String(localized: "Couldn't transcribe that voice note. Try recording again."))
+                return false
+            }
+            let localMessageID = "local-\(UUID().uuidString)"
+            return await performChatSend(
+                sessionID: sessionID,
+                localMessageID: localMessageID,
+                displayContent: text,
+                messageForAPI: text,
+                messageAttachments: [],
+                apiPayloads: [],
+                attachmentsToRestoreOnFailure: [],
+                modelContext: modelContext
+            )
         }
 
         isSendingVoiceNote = true

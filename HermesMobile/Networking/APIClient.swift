@@ -278,7 +278,36 @@ actor APIClient {
     }
 }
 
-private extension APIClient {
+extension APIClient {
+    /// True when this client targets a Hermes Agent (Nous) serve server — the
+    /// X-Hermes-Session-Token header is only injected by configureHermes.
+    nonisolated var isHermesAgentServer: Bool {
+        customHeaderProvider().contains { $0.sanitizedName == "X-Hermes-Session-Token" }
+    }
+
+    /// The Hermes session token (X-Hermes-Session-Token header value), or nil
+    /// when the server isn't a Hermes Agent server.
+    nonisolated var hermesSessionToken: String? {
+        customHeaderProvider()
+            .first { $0.sanitizedName == "X-Hermes-Session-Token" }?
+            .sanitizedValue
+    }
+
+    /// Decodes a response model from a literal dictionary (used by the Hermes
+    /// branches of methods whose webui response shapes don't have memberwise
+    /// inits, e.g. ApprovalRespondResponse).
+    nonisolated static func decodeResponse<Response: Decodable>(
+        _ type: Response.Type,
+        from dict: [String: Any]
+    ) throws -> Response {
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(Response.self, from: data)
+    }
+}
+
+extension APIClient {
     static func makeDefaultSession(delegate: URLSessionDelegate?) -> URLSession {
         let configuration = URLSessionConfiguration.default
         configuration.httpCookieStorage = .shared

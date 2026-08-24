@@ -60,6 +60,15 @@ final class HermesChatStreamClient: SSEStreamingClient {
     private(set) var storedSessionID: String?
     private(set) var isConnected: Bool = false
 
+    /// The X-Hermes-Session-Token value from the shared header store — present
+    /// only when a Hermes Agent (Nous) server is the active server. Used to
+    /// pick the Hermes transport at client-construction time.
+    static var configuredToken: String? {
+        CustomHeaderStore.shared.snapshot()
+            .first { $0.sanitizedName == "X-Hermes-Session-Token" }?
+            .sanitizedValue
+    }
+
     init(baseURL: URL, token: String) {
         self.baseURL = baseURL
         self.token = token

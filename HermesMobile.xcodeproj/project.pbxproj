@@ -36,6 +36,7 @@
 		5417A7400000000000000092 /* SwiftMath in Frameworks */ = {isa = PBXBuildFile; productRef = 5417A7400000000000000091 /* SwiftMath */; };
 		1A2B3C4D5E6F7000000000A0 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7000000000B0 /* KeychainStore.swift */; };
 		1A2B3C4D5E6F7000000000A1 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7000000000B1 /* AuthManager.swift */; };
+		F4FAB8BBE41113E1037722DA /* HermesChatSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329EC88627CD1F82ECA27445 /* HermesChatSessionStore.swift */; };
 		3C358742D3F8A6F335FD363D /* SSEEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF367CFBDF492DB8E981F0B /* SSEEvent.swift */; };
 		514C85715D56009C1071484C /* HermesChatStreamClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F072D174D25F35DD17559B /* HermesChatStreamClient.swift */; };
 		B5E57EEFAFB3DC4DEC83E456 /* HermesAgentAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DAAA08FC07212F4A7AF59DD /* HermesAgentAuth.swift */; };
@@ -482,6 +483,7 @@
 		C22600000000000000000004 /* StreamReconnectContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamReconnectContractTests.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7000000000D5 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7000000000D7 /* SSEClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEClient.swift; sourceTree = "<group>"; };
+		329EC88627CD1F82ECA27445 /* HermesChatSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesChatSessionStore.swift; sourceTree = "<group>"; };
 		6DF367CFBDF492DB8E981F0B /* SSEEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEEvent.swift; sourceTree = "<group>"; };
 		78F072D174D25F35DD17559B /* HermesChatStreamClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesChatStreamClient.swift; sourceTree = "<group>"; };
 		3A56F6D774651DFF998BD0D1 /* JSONRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPC.swift; sourceTree = "<group>"; };
@@ -913,6 +915,7 @@
 				0BA88D022BA557F89A404FA6 /* HermesRESTClient.swift */,
 				6DF367CFBDF492DB8E981F0B /* SSEEvent.swift */,
 				78F072D174D25F35DD17559B /* HermesChatStreamClient.swift */,
+				329EC88627CD1F82ECA27445 /* HermesChatSessionStore.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -1649,6 +1652,7 @@
 				D18E40EC9B859511B536358E /* HermesRESTClient.swift in Sources */,
 				3C358742D3F8A6F335FD363D /* SSEEvent.swift in Sources */,
 				514C85715D56009C1071484C /* HermesChatStreamClient.swift in Sources */,
+				F4FAB8BBE41113E1037722DA /* HermesChatSessionStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

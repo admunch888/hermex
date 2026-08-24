@@ -50,6 +50,28 @@ extension APIClient {
     }
 
     func createSession(workspace: String?, model: String?, modelProvider: String?, profile: String?) async throws -> SessionResponse {
+        if isHermesAgentServer {
+            return try await hermesCreateSession(
+                workspace: workspace,
+                model: model,
+                modelProvider: modelProvider,
+                profile: profile
+            )
+        }
+        return try await webuiCreateSession(
+            workspace: workspace,
+            model: model,
+            modelProvider: modelProvider,
+            profile: profile
+        )
+    }
+
+    private func webuiCreateSession(
+        workspace: String?,
+        model: String?,
+        modelProvider: String?,
+        profile: String?
+    ) async throws -> SessionResponse {
         try await send(
             endpoint: .newSession,
             method: "POST",
@@ -60,6 +82,33 @@ extension APIClient {
                 profile: profile
             )
         )
+    }
+
+    private func hermesCreateSession(
+        workspace: String?,
+        model: String?,
+        modelProvider: String?,
+        profile: String?
+    ) async throws -> SessionResponse {
+        let hermes = try await hermesChatClient()
+        let storedID = try await hermes.createSession(
+            model: model,
+            provider: modelProvider,
+            profile: profile,
+            cwd: workspace
+        )
+        let data = try JSONSerialization.data(withJSONObject: [
+            "session": [
+                "session_id": storedID,
+                "workspace": workspace ?? "",
+                "model": model ?? "",
+                "model_provider": modelProvider ?? "",
+                "profile": profile ?? "",
+            ],
+        ])
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(SessionResponse.self, from: data)
     }
 
     func renameSession(id: String, title: String) async throws -> SessionMutationResponse {
