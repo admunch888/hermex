@@ -392,30 +392,6 @@ extension APIClient {
         return try Self.decodeResponse(ProfileSwitchResponse.self, from: ["active": name])
     }
 
-    private static func hermesString(_ dict: [String: JSONValue], _ key: String) -> String? {
-        guard case .string(let text)? = dict[key] else { return nil }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
-
-    private static func hermesBool(_ dict: [String: JSONValue], _ key: String) -> Bool? {
-        guard case .bool(let value)? = dict[key] else { return nil }
-        return value
-    }
-
-    /// Bridges a `JSONValue` into plain Foundation objects for
-    /// `JSONSerialization` in `decodeResponse`.
-    private static func hermesJSONValueToAny(_ value: JSONValue) -> Any {
-        switch value {
-        case .string(let string): return string
-        case .number(let number): return number
-        case .bool(let bool): return bool
-        case .null: return NSNull()
-        case .array(let values): return values.map(Self.hermesJSONValueToAny)
-        case .object(let object): return object.mapValues(Self.hermesJSONValueToAny)
-        }
-    }
-
     private static func hermesShapeError(_ description: String) -> APIError {
         APIError.decoding(underlying: DecodingError.dataCorrupted(
             .init(codingPath: [], debugDescription: description)

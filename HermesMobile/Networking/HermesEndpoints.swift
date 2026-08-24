@@ -42,14 +42,16 @@ enum HermesEndpoint: Equatable {
 
     // MARK: Cron / tasks
     case cronJobs
+    case cronJobCreate
     case cronJob(id: String)
     case cronJobUpdate(id: String)
     case cronJobDelete(id: String)
     case cronJobPause(id: String)
     case cronJobResume(id: String)
     case cronJobTrigger(id: String)
-    case cronJobRuns(id: String)
+    case cronJobRuns(id: String, limit: Int?)
     case cronDeliveryTargets
+    case cronBlueprints
 
     // MARK: Skills
     case skills
@@ -144,15 +146,16 @@ enum HermesEndpoint: Equatable {
         case .elevenlabsVoices: return "/api/audio/elevenlabs/voices"
         case .chatImageUpload: return "/api/chat/image-upload"
 
-        case .cronJobs: return "/api/cron/jobs"
+        case .cronJobs, .cronJobCreate: return "/api/cron/jobs"
         case .cronJob(let id): return "/api/cron/jobs/\(id)"
         case .cronJobUpdate(let id): return "/api/cron/jobs/\(id)"
         case .cronJobDelete(let id): return "/api/cron/jobs/\(id)"
         case .cronJobPause(let id): return "/api/cron/jobs/\(id)/pause"
         case .cronJobResume(let id): return "/api/cron/jobs/\(id)/resume"
         case .cronJobTrigger(let id): return "/api/cron/jobs/\(id)/trigger"
-        case .cronJobRuns(let id): return "/api/cron/jobs/\(id)/runs"
+        case .cronJobRuns(let id, _): return "/api/cron/jobs/\(id)/runs"
         case .cronDeliveryTargets: return "/api/cron/delivery-targets"
+        case .cronBlueprints: return "/api/cron/blueprints"
 
         case .skills: return "/api/skills"
         case .skillContent: return "/api/skills/content"
@@ -266,6 +269,10 @@ enum HermesEndpoint: Equatable {
         case .kanbanAssignees(let board):
             return [URLQueryItem(name: "board", value: board)]
 
+        case .cronJobRuns(_, let limit):
+            guard let limit else { return [] }
+            return [URLQueryItem(name: "limit", value: "\\(limit)")]
+
         default:
             return []
         }
@@ -282,6 +289,7 @@ enum HermesEndpoint: Equatable {
              .profiles, .projectsTree, .activeProfile, .analyticsUsage, .config,
              .kanbanBoards, .kanbanBoard, .kanbanConfig, .kanbanStats, .kanbanAssignees,
              .kanbanWorkersActive, .cronJobs, .cronJob, .cronJobRuns, .cronDeliveryTargets,
+             .cronBlueprints,
              .kanbanTasks, .kanbanTask, .profile,
              .updateCheck:
             return "GET"
@@ -299,7 +307,7 @@ enum HermesEndpoint: Equatable {
              .filesUploadStream, .gitSwitchBranch, .gitReviewStage, .gitReviewUnstage,
              .gitReviewCommit, .gitReviewPush, .gitReviewCreatePR, .gitReviewRevert,
              .modelSet, .kanbanSwitchBoard, .kanbanDispatch, .cronJobPause,
-             .cronJobResume, .cronJobTrigger, .switchActiveProfile:
+             .cronJobResume, .cronJobTrigger, .cronJobCreate, .switchActiveProfile:
             return "POST"
         }
     }

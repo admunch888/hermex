@@ -337,7 +337,8 @@ extension APIClient {
     /// Bridges a `JSONValue` (the port's raw response type) into plain
     /// Foundation objects so `JSONSerialization` in `decodeResponse` can
     /// serialize it. `JSONValue` itself is a custom enum and would throw.
-    private static func hermesJSONValueToAny(_ value: JSONValue) -> Any {
+    /// Internal so cron/kanban/profile translations can reuse it.
+    static func hermesJSONValueToAny(_ value: JSONValue) -> Any {
         switch value {
         case .string(let string): return string
         case .number(let number): return number
@@ -348,22 +349,22 @@ extension APIClient {
         }
     }
 
-    private static func hermesString(_ object: [String: JSONValue], _ key: String) -> String? {
+    static func hermesString(_ object: [String: JSONValue], _ key: String) -> String? {
         guard case .string(let value)? = object[key] else { return nil }
         return value
     }
 
-    private static func hermesInt(_ object: [String: JSONValue], _ key: String) -> Int? {
+    static func hermesInt(_ object: [String: JSONValue], _ key: String) -> Int? {
         guard case .number(let value)? = object[key] else { return nil }
         return Int(value)
     }
 
-    private static func hermesDouble(_ object: [String: JSONValue], _ key: String) -> Double? {
+    static func hermesDouble(_ object: [String: JSONValue], _ key: String) -> Double? {
         guard case .number(let value)? = object[key] else { return nil }
         return value
     }
 
-    private static func hermesBool(_ object: [String: JSONValue], _ key: String) -> Bool? {
+    static func hermesBool(_ object: [String: JSONValue], _ key: String) -> Bool? {
         switch object[key] {
         case .bool(let value)?:
             return value

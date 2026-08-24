@@ -126,6 +126,63 @@ actor HermesRESTClient {
         try await send(.cronJobs)
     }
 
+    func cronJob(id: String) async throws -> JSONValue {
+        try await send(.cronJob(id: id))
+    }
+
+    /// POST /api/cron/jobs — create. `schedule` is a cron expression, an
+    /// interval like "30m"/"every 2h", or an ISO timestamp.
+    func cronCreate(
+        prompt: String,
+        schedule: String,
+        name: String?,
+        deliver: String?,
+        skills: [String]?,
+        model: String?,
+        provider: String?
+    ) async throws -> JSONValue {
+        var body: [String: JSONValue] = [
+            "prompt": .string(prompt),
+            "schedule": .string(schedule),
+        ]
+        if let name, !name.isEmpty { body["name"] = .string(name) }
+        if let deliver, !deliver.isEmpty { body["deliver"] = .string(deliver) }
+        if let skills { body["skills"] = .array(skills.map(JSONValue.string)) }
+        if let model, !model.isEmpty { body["model"] = .string(model) }
+        if let provider, !provider.isEmpty { body["provider"] = .string(provider) }
+        return try await send(.cronJobCreate, body: .object(body))
+    }
+
+    /// PUT /api/cron/jobs/{id} — update. `updates` maps field names to values
+    /// (`name`, `deliver`, `skills`, `model`, `provider`, `schedule`, `prompt`).
+    func cronUpdate(id: String, updates: [String: JSONValue]) async throws -> JSONValue {
+        try await send(.cronJobUpdate(id: id), body: .object(["updates": .object(updates)]))
+    }
+
+    func cronDelete(id: String) async throws -> JSONValue {
+        try await send(.cronJobDelete(id: id))
+    }
+
+    func cronPause(id: String) async throws -> JSONValue {
+        try await send(.cronJobPause(id: id))
+    }
+
+    func cronResume(id: String) async throws -> JSONValue {
+        try await send(.cronJobResume(id: id))
+    }
+
+    func cronTrigger(id: String) async throws -> JSONValue {
+        try await send(.cronJobTrigger(id: id))
+    }
+
+    func cronRuns(id: String, limit: Int? = nil) async throws -> JSONValue {
+        try await send(.cronJobRuns(id: id, limit: limit))
+    }
+
+    func cronDeliveryTargets() async throws -> JSONValue {
+        try await send(.cronDeliveryTargets)
+    }
+
     // MARK: - Memory / config / analytics
 
     func memory() async throws -> JSONValue {
