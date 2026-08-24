@@ -109,7 +109,7 @@ struct DefaultModelPickerView: View {
                 ModelPickerCard(title: group.name) {
                     VStack(spacing: 0) {
                         ForEach(Array(group.models.enumerated()), id: \.element.id) { index, model in
-                            modelRow(model)
+                            modelRow(model, providerID: group.providerID)
 
                             if index < group.models.count - 1 {
                                 Divider()
@@ -142,9 +142,9 @@ struct DefaultModelPickerView: View {
         }
     }
 
-    private func modelRow(_ model: ModelCatalogOption) -> some View {
+    private func modelRow(_ model: ModelCatalogOption, providerID: String?) -> some View {
         Button {
-            Task { await save(model.id, provider: group.providerID) }
+            Task { await save(model.id, provider: providerID) }
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
