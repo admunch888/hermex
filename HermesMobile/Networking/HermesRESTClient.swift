@@ -147,6 +147,11 @@ actor HermesRESTClient {
         ]))
     }
 
+    /// POST /api/audio/speak — server TTS (`{ok, data_url, mime_type, provider}`).
+    func speak(text: String) async throws -> JSONValue {
+        try await send(.speak, body: .object(["text": .string(text)]))
+    }
+
     func profiles() async throws -> JSONValue {
         try await send(.profiles)
     }

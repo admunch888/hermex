@@ -22,10 +22,44 @@ extension APIClient {
     /// Callers treat any thrown error as "fall back to the on-device
     /// synthesizer" (#15).
     func synthesizeSpeech(text: String, voice: String) async throws -> Data {
-        try await sendData(
+        if isHermesAgentServer {
+            return try await hermesSynthesizeSpeech(text: text)
+        }
+        return try await sendData(
             endpoint: .tts,
             method: "POST",
             body: TTSSynthesisRequest(text: text, voice: voice)
         )
+    }
+
+    /// Hermes Agent path: `POST /api/audio/speak` (there is no webui
+    /// `/api/tts` on Hermes). The response is `{ok, data_url, mime_type,
+    /// provider}` — a base64 data URL, not raw bytes — so decode the payload
+    /// back to `Data`. `voice` is intentionally dropped: Hermes' request model
+    /// is text-only and the provider's configured voice is used (edge defaults
+    /// to `en-US-AriaNeural`, which matches `ServerTTSPolicy.defaultVoice`).
+    private func hermesSynthesizeSpeech(text: String) async throws -> Data {
+        guard let token = hermesSessionToken else { throw APIError.unauthorized }
+        let rest = HermesRESTClient(baseURL: baseURL, sessionToken: token)
+        let result = try await rest.speak(text: text)
+        guard case .object(let dict) = result else {
+            throw APIError.decoding(underlying: DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "Hermes speak response is not an object")
+            ))
+        }
+        guard case .bool(let ok)? = dict["ok"], ok == true else {
+            throw APIError.http(statusCode: 500, body: "Hermes TTS did not confirm synthesis.")
+        }
+        guard case .string(let dataURL)? = dict["data_url"],
+              let separator = dataURL.firstIndex(of: ",")
+        else {
+            throw APIError.http(statusCode: 500, body: "Hermes TTS returned no audio payload.")
+        }
+        let base64 = String(dataURL[dataURL.index(after: separator)...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = Data(base64Encoded: base64) else {
+            throw APIError.http(statusCode: 500, body: "Hermes TTS audio was not valid base64.")
+        }
+        return data
     }
 }
