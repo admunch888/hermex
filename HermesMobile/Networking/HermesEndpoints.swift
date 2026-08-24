@@ -97,7 +97,7 @@ enum HermesEndpoint: Equatable {
     // MARK: Profiles / projects
     case profiles
     case profile(name: String)
-    case projectsTree
+    case projectsTree(previewLimit: Int?, sessionLimit: Int?)
     /// GET /api/profiles/active — the currently active profile.
     case activeProfile
     /// POST /api/profiles/active — switch the active profile (`{name}`).
@@ -298,6 +298,12 @@ enum HermesEndpoint: Equatable {
         case .cronJobRuns(_, let limit):
             guard let limit else { return [] }
             return [URLQueryItem(name: "limit", value: "\(limit)")]
+
+        case .projectsTree(let previewLimit, let sessionLimit):
+            var items: [URLQueryItem] = []
+            if let previewLimit { items.append(.init(name: "preview_limit", value: "\(previewLimit)")) }
+            if let sessionLimit { items.append(.init(name: "session_limit", value: "\(sessionLimit)")) }
+            return items
 
         default:
             return []

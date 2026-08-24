@@ -304,8 +304,10 @@ actor HermesRESTClient {
     }
 
     /// GET /api/profiles/projects/tree — `{projects: [{id, label, path, …}]}`.
-    func projectsTree() async throws -> JSONValue {
-        try await send(.projectsTree)
+    /// `previewLimit`/`sessionLimit` widen the per-project session previews so
+    /// callers can map every session to its owning project in one request.
+    func projectsTree(previewLimit: Int? = nil, sessionLimit: Int? = nil) async throws -> JSONValue {
+        try await send(.projectsTree(previewLimit: previewLimit, sessionLimit: sessionLimit))
     }
 
     // MARK: - Git

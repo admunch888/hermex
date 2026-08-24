@@ -21,7 +21,7 @@ extension APIClient {
     private func hermesProjects() async throws -> ProjectsResponse {
         guard let token = hermesSessionToken else { throw APIError.unauthorized }
         let rest = HermesRESTClient(baseURL: baseURL, sessionToken: token)
-        let json = try await rest.sendRaw(.projectsTree)
+        let json = try await rest.projectsTree()
         guard case .object(let object) = json,
               case .array(let projectValues)? = object["projects"]
         else {

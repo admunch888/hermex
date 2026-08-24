@@ -35,23 +35,55 @@ extension APIClient {
     private func hermesSessions(includeArchived: Bool, archivedLimit: Int?) async throws -> SessionsResponse {
         guard let token = hermesSessionToken else { throw APIError.unauthorized }
         let rest = HermesRESTClient(baseURL: baseURL, sessionToken: token)
-        let json = try await rest.sessions(limit: 50)
+        let json = try await rest.sessions(limit: 100)
         guard case .object(let object) = json else {
             throw APIError.decoding(underlying: DecodingError.dataCorrupted(
                 .init(codingPath: [], debugDescription: "Hermes sessions response is not an object")
             ))
         }
+        // Tag each session with its owning project id (from the project tree's
+        // per-project preview sessions) so the sidebar's project filter matches.
+        let projectIDBySessionID = await Self.hermesProjectIDBySessionID(rest: rest)
         var rows: [[String: Any]] = []
         if case .array(let values)? = object["sessions"] {
             for value in values {
                 guard case .object(let item) = value else { continue }
-                rows.append(Self.hermesSessionSummaryDict(from: item))
+                var dict = Self.hermesSessionSummaryDict(from: item)
+                if let sessionID = dict["session_id"] as? String {
+                    dict["project_id"] = projectIDBySessionID[sessionID] ?? "__no_project__"
+                }
+                rows.append(dict)
             }
         }
         let visible = rows.filter { ($0["archived"] as? Bool) != true }
         let archived = rows.filter { ($0["archived"] as? Bool) == true }
         let merged = includeArchived ? visible + archived.prefix(archivedLimit ?? archived.count) : visible
         return try Self.decodeResponse(SessionsResponse.self, from: ["sessions": merged])
+    }
+
+    /// Builds `sessionID → projectID` from `GET /api/profiles/projects/tree`.
+    /// Each project's `previewSessions` carry the sessions the server already
+    /// grouped under it; unmapped sessions fall back to the Home bucket by the
+    /// caller. Best-effort: a tree fetch failure degrades to no mapping.
+    private static func hermesProjectIDBySessionID(rest: HermesRESTClient) async -> [String: String] {
+        guard let tree = try? await rest.projectsTree(previewLimit: 500, sessionLimit: 2000),
+              case .object(let object) = tree,
+              case .array(let projects)? = object["projects"]
+        else { return [:] }
+        var map: [String: String] = [:]
+        for projectValue in projects {
+            guard case .object(let project) = projectValue else { continue }
+            let projectID = hermesString(project, "id")
+            guard case .array(let previews)? = project["previewSessions"] else { continue }
+            for sessionValue in previews {
+                guard case .object(let session) = sessionValue,
+                      let sessionID = hermesString(session, "id"),
+                      let projectID
+                else { continue }
+                map[sessionID] = projectID
+            }
+        }
+        return map
     }
 
     func searchSessions(query: String, content: Bool = true, depth: Int = 5) async throws -> SessionSearchResponse {
