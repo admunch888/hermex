@@ -221,21 +221,53 @@ final class HermesChatStreamClient: SSEStreamingClient {
         if let cwd { params["cwd"] = .string(cwd) }
         if let source { params["source"] = .string(source) }
 
-        let result = try await rpc("session.create", params)
-        if case .object(let dict) = result {
-            if case .string(let s)? = dict["session_id"] { sessionID = s }
-            if case .string(let s)? = dict["stored_session_id"] { storedSessionID = s }
+        let result: JSONValue
+        do {
+            result = try await rpc("session.create", params)
+        } catch {
+            // A half-open socket still reports `.connected`, so `ensureConnected`
+            // returns early and the create hits a dead socket. `rpc` won't recover
+            // `session.create` (a blind retry could mint a duplicate), but a local
+            // send failure (POSIX 57) never left the device — and Hermes persists no
+            // DB row until the first prompt anyway — so a forced reconnect + one
+            // retry is safe.
+            try await reconnectSocket()
+            result = try await rpc("session.create", params)
         }
+        captureSessionIDs(from: result)
         return storedSessionID ?? sessionID ?? ""
     }
 
     /// Resumes an existing session by its durable id (from the session list).
     func resumeSession(durableID: String) async throws {
         try await ensureConnected()
-        let result = try await rpc("session.resume", ["session_id": .string(durableID)])
-        if case .object(let dict) = result {
-            if case .string(let s)? = dict["session_id"] { sessionID = s }
-            if case .string(let s)? = dict["stored_session_id"] { storedSessionID = s }
+        let result: JSONValue
+        do {
+            result = try await rpc("session.resume", ["session_id": .string(durableID)])
+        } catch {
+            // Same half-open-socket hazard as createSession: `rpc` deliberately does
+            // NOT auto-recover `session.resume` (recovery itself calls resume, so it
+            // would loop). Force a fresh socket and retry once here instead.
+            try await reconnectSocket()
+            result = try await rpc("session.resume", ["session_id": .string(durableID)])
+        }
+        captureSessionIDs(from: result)
+    }
+
+    /// Extracts the short + durable session ids from a session.create / resume
+    /// result. The two RPCs use DIFFERENT durable-id field names: `session.create`
+    /// returns `stored_session_id`, but `session.resume` returns `resumed` (with
+    /// `session_key` also populated). Missing fields are ignored, so the stored id
+    /// survives a resume even when the response omits `stored_session_id`.
+    private func captureSessionIDs(from result: JSONValue) {
+        guard case .object(let dict) = result else { return }
+        if case .string(let s)? = dict["session_id"] { sessionID = s }
+        if case .string(let s)? = dict["stored_session_id"] {
+            storedSessionID = s
+        } else if case .string(let s)? = dict["resumed"] {
+            storedSessionID = s
+        } else if case .string(let s)? = dict["session_key"] {
+            storedSessionID = s
         }
     }
 
