@@ -49,6 +49,15 @@ extension APIClient {
     }
 
     func personalities() async throws -> PersonalitiesResponse {
+        if isHermesAgentServer {
+            // Hermes serve has no personality system — return an empty list
+            // so the slash autocomplete degrades to ["none"].
+            return PersonalitiesResponse(personalities: nil)
+        }
+        return try await webuiPersonalities()
+    }
+
+    private func webuiPersonalities() async throws -> PersonalitiesResponse {
         try await send(endpoint: .personalities, method: "GET")
     }
 

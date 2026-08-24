@@ -2,6 +2,15 @@ import Foundation
 
 extension APIClient {
     func workspaces() async throws -> WorkspacesResponse {
+        if isHermesAgentServer {
+            // Hermes serve has no workspace registry — the session's cwd IS
+            // the workspace, so return an empty registry rather than 404.
+            return WorkspacesResponse(workspaces: nil, last: nil)
+        }
+        return try await webuiWorkspaces()
+    }
+
+    private func webuiWorkspaces() async throws -> WorkspacesResponse {
         try await send(endpoint: .workspaces, method: "GET")
     }
 
