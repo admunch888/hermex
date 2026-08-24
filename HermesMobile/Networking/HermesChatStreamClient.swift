@@ -122,6 +122,22 @@ final class HermesChatStreamClient: SSEStreamingClient {
         isConnected = true
     }
 
+    /// Force-tears-down the current socket and opens a fresh one. Used to
+    /// recover from a transport failure, where the old socket may still report
+    /// `.connected` even though it's half-open (the server closed it but the
+    /// close event hasn't reached the client) — `ensureConnected` alone would
+    /// happily reuse that dead socket. Preserves the event sink.
+    private func reconnectSocket() async throws {
+        if let old = ws {
+            // Cancels the old client's auto-reconnect + task and invalidates
+            // its URLSession, so it can't resurrect a ghost socket later.
+            old.disconnect()
+        }
+        ws = nil
+        isConnected = false
+        try await ensureConnected()
+    }
+
     private func rpc(_ method: String, _ params: [String: JSONValue] = [:]) async throws -> JSONValue {
         guard let ws else { throw ChatError.notConnected }
         do {
@@ -163,13 +179,14 @@ final class HermesChatStreamClient: SSEStreamingClient {
         params: [String: JSONValue],
         waitForReconnect: Bool
     ) async throws -> JSONValue {
-        if waitForReconnect, let ws {
-            var waited = 0.0
-            while ws.state != .connected && waited < 6 {
-                try? await Task.sleep(for: .milliseconds(200))
-                waited += 0.2
+        if waitForReconnect {
+            // Force a fresh socket — the old one may be half-open (still
+            // reporting `.connected`) even though the server closed it.
+            do {
+                try await reconnectSocket()
+            } catch {
+                throw ChatError.notConnected
             }
-            guard ws.state == .connected else { throw ChatError.notConnected }
         }
         if let storedSessionID, !storedSessionID.isEmpty {
             // Re-resume by the durable id (mints a fresh short sid); failures

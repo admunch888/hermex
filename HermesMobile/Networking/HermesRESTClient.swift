@@ -46,7 +46,7 @@ actor HermesRESTClient {
             request.httpBody = try JSONEncoder().encode(body)
         }
 
-        let (data, response) = try await urlSession.data(for: request)
+        let (data, response) = try await performSend(request)
         guard let http = response as? HTTPURLResponse else {
             throw RESTError.http(statusCode: -1, body: nil)
         }
@@ -59,6 +59,20 @@ actor HermesRESTClient {
         }
         if data.isEmpty { return .null }
         return try JSONDecoder().decode(JSONValue.self, from: data)
+    }
+
+    /// One-shot transport-retry: a dead socket / tunnel blip surfaces as a raw
+    /// `URLError`; every HermesRESTClient call is idempotent (read or a repeat
+    /// of the same write), so retrying once recovers transient failures without
+    /// masking HTTP/auth/decoding errors.
+    private func performSend(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await urlSession.data(for: request)
+        } catch let error as URLError {
+            guard error.isTransportFailure else { throw error }
+            try? await Task.sleep(for: .milliseconds(800))
+            return try await urlSession.data(for: request)
+        }
     }
 
     // MARK: - Public probes

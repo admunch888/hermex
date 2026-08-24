@@ -95,7 +95,9 @@ struct HermesVoiceTranscriber {
     }
 }
 
-private extension URLError {
+/// Shared with HermesRESTClient so every REST call can retry transient
+/// transport failures, not just transcription.
+extension URLError {
     /// Transport-level failures worth one retry: the connection itself died or
     /// was never established (vs. HTTP/auth/decoding problems).
     var isTransportFailure: Bool {
