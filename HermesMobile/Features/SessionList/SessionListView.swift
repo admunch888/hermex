@@ -41,6 +41,7 @@ struct SessionListView: View {
     private var profilesAreExpanded = SessionSidebarDisclosureSettings.defaultProfilesAreExpanded
     @AppStorage(SessionSidebarDisclosureSettings.projectsAreExpandedKey)
     private var projectsAreExpanded = SessionSidebarDisclosureSettings.defaultProjectsAreExpanded
+    @State private var botsAreExpanded = true
     @AppStorage(SessionSidebarDisclosureSettings.scheduledSessionsAreExpandedKey)
     private var scheduledSessionsAreExpanded = SessionSidebarDisclosureSettings.defaultScheduledSessionsAreExpanded
     @AppStorage(SessionRowDisplaySettings.showMessageCountKey) private var showsSessionMessageCount = true
@@ -416,6 +417,7 @@ struct SessionListView: View {
                     sectionVisibility: sidebarSectionVisibility,
                     profilesAreExpanded: $profilesAreExpanded,
                     projectsAreExpanded: $projectsAreExpanded,
+                    botsAreExpanded: $botsAreExpanded,
                     selectedProjectID: $selectedProjectID,
                     projectPendingDeletion: $projectPendingDeletion,
                     projectPendingRename: $projectPendingRename,
@@ -424,6 +426,9 @@ struct SessionListView: View {
                     },
                     switchActiveProfile: { profile in
                         Task { await switchActiveProfile(profile) }
+                    },
+                    openBot: { profile in
+                        openBotChat(profile)
                     },
                     presentProjectCreation: {
                         isPresentingProjectCreation = true
@@ -486,6 +491,7 @@ struct SessionListView: View {
         // so insert/remove animates. Value-based so it works with @AppStorage.
         .animation(SessionListMotion.disclosureAnimation(reduceMotion: reduceMotion), value: profilesAreExpanded)
         .animation(SessionListMotion.disclosureAnimation(reduceMotion: reduceMotion), value: projectsAreExpanded)
+        .animation(SessionListMotion.disclosureAnimation(reduceMotion: reduceMotion), value: botsAreExpanded)
         .animation(SessionListMotion.disclosureAnimation(reduceMotion: reduceMotion), value: scheduledSessionsAreExpanded)
     }
 
@@ -1203,6 +1209,12 @@ struct SessionListView: View {
 
     private func openNewChat() {
         navigationState.select(PendingNewChatRoute())
+    }
+
+    /// Opens a new chat scoped to a bot's profile (the Hermes "Bot Mode" tap-to-chat).
+    private func openBotChat(_ profile: ProfileSummary) {
+        guard let name = profile.normalizedName else { return }
+        navigationState.select(PendingNewChatRoute(profileName: name))
     }
 
     private func selectSession(_ session: SessionSummary) {

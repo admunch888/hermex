@@ -136,12 +136,14 @@ struct SessionSidebarUtilityRows: View {
     let sectionVisibility: SidebarSectionVisibility
     @Binding var profilesAreExpanded: Bool
     @Binding var projectsAreExpanded: Bool
+    @Binding var botsAreExpanded: Bool
     @Binding var selectedProjectID: String?
     @Binding var projectPendingDeletion: ProjectSummary?
     @Binding var projectPendingRename: ProjectSummary?
 
     let openDestination: (SessionListUtilityDestination) -> Void
     let switchActiveProfile: (ProfileSummary) -> Void
+    let openBot: (ProfileSummary) -> Void
     let presentProjectCreation: () -> Void
 
     // Each disclosure subrow is emitted as its own List row (like the session
@@ -178,6 +180,16 @@ struct SessionSidebarUtilityRows: View {
                 projectOptionRows
             }
         }
+
+        if !viewModel.profileOptions.isEmpty {
+            botsHeader
+                .padding(.top, botsTopPadding)
+                .sessionsScreenListRow()
+
+            if botsAreExpanded {
+                botsOptionRows
+            }
+        }
     }
 
     private var showsActiveProfile: Bool {
@@ -192,6 +204,61 @@ struct SessionSidebarUtilityRows: View {
 
     private var projectsTopPadding: CGFloat {
         sectionVisibility.showsAnyUtilityLink || showsActiveProfile ? Self.rowSpacing : topPadding
+    }
+
+    private var botsTopPadding: CGFloat {
+        sectionVisibility.showsAnyUtilityLink || showsActiveProfile || sectionVisibility.projects ? Self.rowSpacing : topPadding
+    }
+
+    private var botsHeader: some View {
+        SidebarDisclosureButton(
+            title: String(localized: "Bots"),
+            assetImage: "LucideUserRound",
+            isExpanded: botsAreExpanded
+        ) {
+            botsAreExpanded.toggle()
+        } accessory: {
+            EmptyView()
+        }
+        .padding(.horizontal, 24)
+        .accessibilityLabel(botsAreExpanded ? "Collapse bots" : "Expand bots")
+    }
+
+    /// One row per Hermes profile (a "bot" = an agent profile). Tapping opens a
+    /// new chat scoped to that bot's profile, so its persona/model answers.
+    private var botsOptionRows: some View {
+        ForEach(viewModel.profileOptions) { profile in
+            disclosureSubrow {
+                HapticButton {
+                    openBot(profile)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .font(.body)
+                            .foregroundStyle(.tint)
+                            .frame(width: 28)
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(profile.displayName)
+                                .font(.body)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+
+                            if let model = profile.model, !model.isEmpty {
+                                Text(model)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private func disclosureSubrow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
