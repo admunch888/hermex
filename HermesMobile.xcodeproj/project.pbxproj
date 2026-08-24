@@ -36,6 +36,12 @@
 		5417A7400000000000000092 /* SwiftMath in Frameworks */ = {isa = PBXBuildFile; productRef = 5417A7400000000000000091 /* SwiftMath */; };
 		1A2B3C4D5E6F7000000000A0 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7000000000B0 /* KeychainStore.swift */; };
 		1A2B3C4D5E6F7000000000A1 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7000000000B1 /* AuthManager.swift */; };
+		B5E57EEFAFB3DC4DEC83E456 /* HermesAgentAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DAAA08FC07212F4A7AF59DD /* HermesAgentAuth.swift */; };
+		9DF41924855696185E17162B /* JSONRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A56F6D774651DFF998BD0D1 /* JSONRPC.swift */; };
+		3A10C78300B931F8683C71A2 /* HermesWebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C4197C64F949CD48FCF1D3 /* HermesWebSocketClient.swift */; };
+		D5C822F53C78161645EA6C6D /* HermesEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 330F77D352360BD358BFF47A /* HermesEndpoints.swift */; };
+		1A69E2507A2B9B2C323A8EB2 /* HermesVoiceTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72BB8D34BD6D83F1BA080866 /* HermesVoiceTranscriber.swift */; };
+		D18E40EC9B859511B536358E /* HermesRESTClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BA88D022BA557F89A404FA6 /* HermesRESTClient.swift */; };
 		1A2B3C4D5E6F7000000000A2 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7000000000B2 /* APIClient.swift */; };
 		C04000000000000000000001 /* APIClient+Sessions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04000000000000000000011 /* APIClient+Sessions.swift */; };
 		C04000000000000000000002 /* APIClient+Projects.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04000000000000000000012 /* APIClient+Projects.swift */; };
@@ -375,6 +381,7 @@
 		10CA110C0DE000000000C002 /* LocalizationCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationCatalogTests.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F700000000015 /* HermesMobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HermesMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A2B3C4D5E6F7000000000B0 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		3DAAA08FC07212F4A7AF59DD /* HermesAgentAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesAgentAuth.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7000000000B1 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7000000000B2 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		C04000000000000000000011 /* APIClient+Sessions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APIClient+Sessions.swift"; sourceTree = "<group>"; };
@@ -473,6 +480,11 @@
 		C22600000000000000000004 /* StreamReconnectContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamReconnectContractTests.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7000000000D5 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7000000000D7 /* SSEClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEClient.swift; sourceTree = "<group>"; };
+		3A56F6D774651DFF998BD0D1 /* JSONRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPC.swift; sourceTree = "<group>"; };
+		19C4197C64F949CD48FCF1D3 /* HermesWebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesWebSocketClient.swift; sourceTree = "<group>"; };
+		330F77D352360BD358BFF47A /* HermesEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesEndpoints.swift; sourceTree = "<group>"; };
+		72BB8D34BD6D83F1BA080866 /* HermesVoiceTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesVoiceTranscriber.swift; sourceTree = "<group>"; };
+		0BA88D022BA557F89A404FA6 /* HermesRESTClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesRESTClient.swift; sourceTree = "<group>"; };
 		C0FF000000000000000000A2 /* CustomHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomHeader.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7000000000D9 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
 		BEEF02400000000000000002 /* ChatAttachmentPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAttachmentPreviewView.swift; sourceTree = "<group>"; };
@@ -860,6 +872,7 @@
 			children = (
 				1A2B3C4D5E6F7000000000B1 /* AuthManager.swift */,
 				1A2B3C4D5E6F7000000000B0 /* KeychainStore.swift */,
+				3DAAA08FC07212F4A7AF59DD /* HermesAgentAuth.swift */,
 			);
 			path = Auth;
 			sourceTree = "<group>";
@@ -889,6 +902,11 @@
 				C0FF000000000000000000A2 /* CustomHeader.swift */,
 				1A2B3C4D5E6F7000000000B3 /* APIError.swift */,
 				C04400000000000000000002 /* CacheFallbackPolicy.swift */,
+				3A56F6D774651DFF998BD0D1 /* JSONRPC.swift */,
+				19C4197C64F949CD48FCF1D3 /* HermesWebSocketClient.swift */,
+				330F77D352360BD358BFF47A /* HermesEndpoints.swift */,
+				72BB8D34BD6D83F1BA080866 /* HermesVoiceTranscriber.swift */,
+				0BA88D022BA557F89A404FA6 /* HermesRESTClient.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -1617,6 +1635,12 @@
 				26AB000000000000000000B2 /* ProvidersView.swift in Sources */,
 				B5A100000000000000000001 /* SharedDraftStore.swift in Sources */,
 				B5A100000000000000000008 /* ShareInputReader.swift in Sources */,
+				B5E57EEFAFB3DC4DEC83E456 /* HermesAgentAuth.swift in Sources */,
+				9DF41924855696185E17162B /* JSONRPC.swift in Sources */,
+				3A10C78300B931F8683C71A2 /* HermesWebSocketClient.swift in Sources */,
+				D5C822F53C78161645EA6C6D /* HermesEndpoints.swift in Sources */,
+				1A69E2507A2B9B2C323A8EB2 /* HermesVoiceTranscriber.swift in Sources */,
+				D18E40EC9B859511B536358E /* HermesRESTClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
