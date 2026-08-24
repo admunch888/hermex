@@ -206,6 +206,7 @@ extension APIClient {
         let hermes = try await hermesChatClient()
         let storedID: String
         if sessionID.isEmpty {
+            print("[Hermex] hermesStartChat: createSession (empty sid)")
             storedID = try await hermes.createSession(
                 model: model,
                 provider: modelProvider,
@@ -216,11 +217,14 @@ extension APIClient {
             // The session was created moments ago on THIS WS connection
             // (no DB row until the first prompt) — resuming it would 4007
             // "session not found". The live session is already held.
+            print("[Hermex] hermesStartChat: skip resume (storedSessionID matches \(sessionID))")
             storedID = sessionID
         } else {
+            print("[Hermex] hermesStartChat: resumeSession(\(sessionID))")
             try await hermes.resumeSession(durableID: sessionID)
             storedID = await hermes.storedSessionID ?? sessionID
         }
+        print("[Hermex] hermesStartChat: submit \"\(message.prefix(40))\"")
         try await hermes.submit(text: message)
         return ChatStartResponse(streamId: storedID, sessionId: storedID, error: nil)
     }

@@ -82,6 +82,7 @@ final class HermesWebSocketClient: NSObject, URLSessionWebSocketDelegate {
         manuallyClosed = false
         guard state != .connected, state != .connecting else { return }
         setState(.connecting)
+        print("[Hermex] WS connecting → \(wsURL.host ?? "?"):\(wsURL.port ?? 0)")
 
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 60
@@ -113,9 +114,11 @@ final class HermesWebSocketClient: NSObject, URLSessionWebSocketDelegate {
     private func handleOpen() {
         reconnectAttempt = 0
         setState(.connected)
+        print("[Hermex] WS connected")
     }
 
     private func handleClose(code: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        print("[Hermex] WS closed code=\(code.rawValue) manuallyClosed=\(manuallyClosed)")
         stopPing()
         let remaining = pending
         pending = [:]
@@ -129,6 +132,7 @@ final class HermesWebSocketClient: NSObject, URLSessionWebSocketDelegate {
     }
 
     private func handleTransportError(_ error: Error) {
+        print("[Hermex] WS transport error: \(error)")
         stopPing()
         let remaining = pending
         pending = [:]
@@ -145,6 +149,7 @@ final class HermesWebSocketClient: NSObject, URLSessionWebSocketDelegate {
         setState(.reconnecting(attempt: reconnectAttempt))
         // Exponential backoff, capped at 30 s. First retry after 1 s.
         let delay = min(1.0 * pow(2.0, Double(reconnectAttempt - 1)), 30.0)
+        print("[Hermex] WS reconnecting attempt \(reconnectAttempt) in \(delay)s")
         reconnectTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled, let self else { return }

@@ -144,6 +144,7 @@ final class HermesChatStreamClient: SSEStreamingClient {
             return try await ws.send(method: method, params: .object(params))
         } catch let error as HermesWebSocketClient.ClientError {
             if case .remoteError(let rpcError) = error {
+                print("[Hermex] rpc \(method) remote error code=\(String(describing: rpcError.code)): \(rpcError.message ?? "")")
                 // The gateway reaps sessions on WS disconnect (orphan-reap,
                 // idle TTL) and expects clients to recover by re-resuming the
                 // STORED session id (tui_gateway/server.py _sess_nowait). A
@@ -166,6 +167,7 @@ final class HermesChatStreamClient: SSEStreamingClient {
             // and retry once. session.resume is the recovery itself, and
             // session.create already persisted server-side — retrying either
             // would loop or mint a duplicate session.
+            print("[Hermex] rpc \(method) transport error: \(error)")
             guard method != "session.resume", method != "session.create" else { throw error }
             return try await retryAfterRecovery(method: method, params: params, waitForReconnect: true)
         }
@@ -179,12 +181,14 @@ final class HermesChatStreamClient: SSEStreamingClient {
         params: [String: JSONValue],
         waitForReconnect: Bool
     ) async throws -> JSONValue {
+        print("[Hermex] retryAfterRecovery \(method) waitForReconnect=\(waitForReconnect) storedSessionID=\(storedSessionID ?? "nil")")
         if waitForReconnect {
             // Force a fresh socket — the old one may be half-open (still
             // reporting `.connected`) even though the server closed it.
             do {
                 try await reconnectSocket()
             } catch {
+                print("[Hermex] retryAfterRecovery reconnect FAILED: \(error)")
                 throw ChatError.notConnected
             }
         }
@@ -192,11 +196,13 @@ final class HermesChatStreamClient: SSEStreamingClient {
             // Re-resume by the durable id (mints a fresh short sid); failures
             // are swallowed — the retry below surfaces the truth.
             try? await resumeSession(durableID: storedSessionID)
+            print("[Hermex] retryAfterRecovery resumed → short=\(self.sessionID ?? "nil")")
         }
         var retryParams = params
         if case .string(let stale)? = retryParams["session_id"],
            let fresh = sessionID, fresh != stale {
             retryParams["session_id"] = .string(fresh)
+            print("[Hermex] retryAfterRecovery swapping stale sid \(stale) → \(fresh)")
         }
         guard let freshWS = self.ws else { throw ChatError.notConnected }
         return try await freshWS.send(method: method, params: .object(retryParams))
@@ -225,6 +231,7 @@ final class HermesChatStreamClient: SSEStreamingClient {
         do {
             result = try await rpc("session.create", params)
         } catch {
+            print("[Hermex] session.create failed (\(error)) — reconnecting + retrying once")
             // A half-open socket still reports `.connected`, so `ensureConnected`
             // returns early and the create hits a dead socket. `rpc` won't recover
             // `session.create` (a blind retry could mint a duplicate), but a local
@@ -245,6 +252,7 @@ final class HermesChatStreamClient: SSEStreamingClient {
         do {
             result = try await rpc("session.resume", ["session_id": .string(durableID)])
         } catch {
+            print("[Hermex] session.resume \(durableID) failed (\(error)) — reconnecting + retrying once")
             // Same half-open-socket hazard as createSession: `rpc` deliberately does
             // NOT auto-recover `session.resume` (recovery itself calls resume, so it
             // would loop). Force a fresh socket and retry once here instead.

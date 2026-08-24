@@ -65,6 +65,7 @@ struct HermesVoiceTranscriber {
         // {detail: "..."} — map detail onto `error` so the existing UI copy
         // ("Voice transcription failed") keeps working.
         if let decoded = try? JSONDecoder().decode(TranscribeResponse.self, from: responseData) {
+            print("[Hermex] transcribe OK (\(httpResponse.statusCode)): \"\(decoded.transcript ?? "")\"")
             return decoded
         }
         if let detail = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
