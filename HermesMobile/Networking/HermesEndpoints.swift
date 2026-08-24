@@ -109,17 +109,23 @@ enum HermesEndpoint: Equatable {
 
     // MARK: Kanban (plugin)
     case kanbanBoards
-    case kanbanBoard(slug: String)
+    case kanbanBoardCreate
+    case kanbanBoardSnapshot(slug: String)
     case kanbanSwitchBoard(slug: String)
     case kanbanConfig
-    case kanbanTasks
+    case kanbanTaskCreate
+    case kanbanTasksBulk
     case kanbanTask(id: String)
     case kanbanTaskUpdate(id: String)
     case kanbanTaskDelete(id: String)
+    case kanbanTaskComments(id: String)
+    case kanbanTaskLog(id: String)
     case kanbanStats(board: String)
-    case kanbanDispatch
+    case kanbanDispatch(board: String, dryRun: Bool)
     case kanbanAssignees(board: String)
     case kanbanWorkersActive
+    case kanbanLinks
+    case kanbanLinksDelete(parentID: String, childID: String)
 
     // MARK: Updates
     case updateCheck
@@ -200,18 +206,22 @@ enum HermesEndpoint: Equatable {
         case .analyticsUsage: return "/api/analytics/usage"
         case .config: return "/api/config"
 
-        case .kanbanBoards: return "/api/plugins/kanban/boards"
-        case .kanbanBoard(let slug): return "/api/plugins/kanban/boards/\(slug)"
+        case .kanbanBoards, .kanbanBoardCreate: return "/api/plugins/kanban/boards"
+        case .kanbanBoardSnapshot: return "/api/plugins/kanban/board"
         case .kanbanSwitchBoard(let slug): return "/api/plugins/kanban/boards/\(slug)/switch"
         case .kanbanConfig: return "/api/plugins/kanban/config"
-        case .kanbanTasks: return "/api/plugins/kanban/tasks"
+        case .kanbanTaskCreate: return "/api/plugins/kanban/tasks"
+        case .kanbanTasksBulk: return "/api/plugins/kanban/tasks/bulk"
         case .kanbanTask(let id): return "/api/plugins/kanban/tasks/\(id)"
         case .kanbanTaskUpdate(let id): return "/api/plugins/kanban/tasks/\(id)"
         case .kanbanTaskDelete(let id): return "/api/plugins/kanban/tasks/\(id)"
+        case .kanbanTaskComments(let id): return "/api/plugins/kanban/tasks/\(id)/comments"
+        case .kanbanTaskLog(let id): return "/api/plugins/kanban/tasks/\(id)/log"
         case .kanbanStats: return "/api/plugins/kanban/stats"
         case .kanbanDispatch: return "/api/plugins/kanban/dispatch"
         case .kanbanAssignees: return "/api/plugins/kanban/assignees"
         case .kanbanWorkersActive: return "/api/plugins/kanban/workers/active"
+        case .kanbanLinks, .kanbanLinksDelete: return "/api/plugins/kanban/links"
 
         case .updateCheck: return "/api/hermes/update/check"
         }
@@ -269,9 +279,25 @@ enum HermesEndpoint: Equatable {
         case .kanbanAssignees(let board):
             return [URLQueryItem(name: "board", value: board)]
 
+        case .kanbanBoardSnapshot(let slug):
+            return [URLQueryItem(name: "board", value: slug)]
+
+        case .kanbanDispatch(let board, let dryRun):
+            return [
+                URLQueryItem(name: "board", value: board),
+                URLQueryItem(name: "dry_run", value: dryRun ? "true" : "false"),
+                URLQueryItem(name: "max", value: "8"),
+            ]
+
+        case .kanbanLinksDelete(let parentID, let childID):
+            return [
+                URLQueryItem(name: "parent_id", value: parentID),
+                URLQueryItem(name: "child_id", value: childID),
+            ]
+
         case .cronJobRuns(_, let limit):
             guard let limit else { return [] }
-            return [URLQueryItem(name: "limit", value: "\\(limit)")]
+            return [URLQueryItem(name: "limit", value: "\(limit)")]
 
         default:
             return []
@@ -287,10 +313,10 @@ enum HermesEndpoint: Equatable {
              .gitStatus, .gitBranches, .gitBaseBranches, .gitFileDiff, .gitReviewList, .gitWorktrees,
              .modelOptions, .modelInfo, .modelRecommendedDefault, .providersCustomEndpoints,
              .profiles, .projectsTree, .activeProfile, .analyticsUsage, .config,
-             .kanbanBoards, .kanbanBoard, .kanbanConfig, .kanbanStats, .kanbanAssignees,
+             .kanbanBoards, .kanbanBoardSnapshot, .kanbanConfig, .kanbanStats, .kanbanAssignees,
              .kanbanWorkersActive, .cronJobs, .cronJob, .cronJobRuns, .cronDeliveryTargets,
              .cronBlueprints,
-             .kanbanTasks, .kanbanTask, .profile,
+             .kanbanTaskLog, .kanbanTask, .profile,
              .updateCheck:
             return "GET"
 
@@ -300,13 +326,15 @@ enum HermesEndpoint: Equatable {
         case .updateSession, .cronJobUpdate, .kanbanTaskUpdate:
             return "PATCH"
 
-        case .deleteSession, .cronJobDelete, .kanbanTaskDelete:
+        case .deleteSession, .cronJobDelete, .kanbanTaskDelete, .kanbanLinksDelete:
             return "DELETE"
 
         case .transcribe, .speak, .chatImageUpload, .fsWriteText, .filesUpload,
              .filesUploadStream, .gitSwitchBranch, .gitReviewStage, .gitReviewUnstage,
              .gitReviewCommit, .gitReviewPush, .gitReviewCreatePR, .gitReviewRevert,
-             .modelSet, .kanbanSwitchBoard, .kanbanDispatch, .cronJobPause,
+             .modelSet, .kanbanSwitchBoard, .kanbanDispatch, .kanbanBoardCreate,
+             .kanbanTaskCreate, .kanbanTasksBulk, .kanbanTaskComments, .kanbanLinks,
+             .cronJobPause,
              .cronJobResume, .cronJobTrigger, .cronJobCreate, .switchActiveProfile:
             return "POST"
         }

@@ -183,6 +183,72 @@ actor HermesRESTClient {
         try await send(.cronDeliveryTargets)
     }
 
+    // MARK: - Kanban
+
+    func kanbanBoards() async throws -> JSONValue {
+        try await send(.kanbanBoards)
+    }
+
+    func kanbanBoardSnapshot(slug: String) async throws -> JSONValue {
+        try await send(.kanbanBoardSnapshot(slug: slug))
+    }
+
+    func kanbanConfig() async throws -> JSONValue {
+        try await send(.kanbanConfig)
+    }
+
+    func kanbanStats(board: String) async throws -> JSONValue {
+        try await send(.kanbanStats(board: board))
+    }
+
+    func kanbanAssignees(board: String) async throws -> JSONValue {
+        try await send(.kanbanAssignees(board: board))
+    }
+
+    func kanbanTask(id: String) async throws -> JSONValue {
+        try await send(.kanbanTask(id: id))
+    }
+
+    func kanbanTaskLog(id: String) async throws -> JSONValue {
+        try await send(.kanbanTaskLog(id: id))
+    }
+
+    func kanbanDispatch(board: String, dryRun: Bool) async throws -> JSONValue {
+        try await send(.kanbanDispatch(board: board, dryRun: dryRun))
+    }
+
+    func kanbanCreateBoard(body: JSONValue) async throws -> JSONValue {
+        try await send(.kanbanBoardCreate, body: body)
+    }
+
+    func kanbanCreateTask(body: JSONValue) async throws -> JSONValue {
+        try await send(.kanbanTaskCreate, body: body)
+    }
+
+    func kanbanUpdateTask(id: String, body: JSONValue) async throws -> JSONValue {
+        try await send(.kanbanTaskUpdate(id: id), body: body)
+    }
+
+    func kanbanBulk(body: JSONValue) async throws -> JSONValue {
+        try await send(.kanbanTasksBulk, body: body)
+    }
+
+    func kanbanAddComment(id: String, body: JSONValue) async throws -> JSONValue {
+        try await send(.kanbanTaskComments(id: id), body: body)
+    }
+
+    func kanbanAddLink(body: JSONValue) async throws -> JSONValue {
+        try await send(.kanbanLinks, body: body)
+    }
+
+    func kanbanRemoveLink(parentID: String, childID: String) async throws -> JSONValue {
+        try await send(.kanbanLinksDelete(parentID: parentID, childID: childID))
+    }
+
+    func kanbanSwitchBoard(slug: String) async throws -> JSONValue {
+        try await send(.kanbanSwitchBoard(slug: slug))
+    }
+
     // MARK: - Memory / config / analytics
 
     func memory() async throws -> JSONValue {
