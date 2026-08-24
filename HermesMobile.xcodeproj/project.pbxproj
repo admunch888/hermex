@@ -36,6 +36,8 @@
 		5417A7400000000000000092 /* SwiftMath in Frameworks */ = {isa = PBXBuildFile; productRef = 5417A7400000000000000091 /* SwiftMath */; };
 		1A2B3C4D5E6F7000000000A0 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7000000000B0 /* KeychainStore.swift */; };
 		1A2B3C4D5E6F7000000000A1 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7000000000B1 /* AuthManager.swift */; };
+		3C358742D3F8A6F335FD363D /* SSEEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF367CFBDF492DB8E981F0B /* SSEEvent.swift */; };
+		514C85715D56009C1071484C /* HermesChatStreamClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F072D174D25F35DD17559B /* HermesChatStreamClient.swift */; };
 		B5E57EEFAFB3DC4DEC83E456 /* HermesAgentAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DAAA08FC07212F4A7AF59DD /* HermesAgentAuth.swift */; };
 		9DF41924855696185E17162B /* JSONRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A56F6D774651DFF998BD0D1 /* JSONRPC.swift */; };
 		3A10C78300B931F8683C71A2 /* HermesWebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C4197C64F949CD48FCF1D3 /* HermesWebSocketClient.swift */; };
@@ -480,6 +482,8 @@
 		C22600000000000000000004 /* StreamReconnectContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamReconnectContractTests.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7000000000D5 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7000000000D7 /* SSEClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEClient.swift; sourceTree = "<group>"; };
+		6DF367CFBDF492DB8E981F0B /* SSEEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSEEvent.swift; sourceTree = "<group>"; };
+		78F072D174D25F35DD17559B /* HermesChatStreamClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesChatStreamClient.swift; sourceTree = "<group>"; };
 		3A56F6D774651DFF998BD0D1 /* JSONRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONRPC.swift; sourceTree = "<group>"; };
 		19C4197C64F949CD48FCF1D3 /* HermesWebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesWebSocketClient.swift; sourceTree = "<group>"; };
 		330F77D352360BD358BFF47A /* HermesEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesEndpoints.swift; sourceTree = "<group>"; };
@@ -907,6 +911,8 @@
 				330F77D352360BD358BFF47A /* HermesEndpoints.swift */,
 				72BB8D34BD6D83F1BA080866 /* HermesVoiceTranscriber.swift */,
 				0BA88D022BA557F89A404FA6 /* HermesRESTClient.swift */,
+				6DF367CFBDF492DB8E981F0B /* SSEEvent.swift */,
+				78F072D174D25F35DD17559B /* HermesChatStreamClient.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -1641,6 +1647,8 @@
 				D5C822F53C78161645EA6C6D /* HermesEndpoints.swift in Sources */,
 				1A69E2507A2B9B2C323A8EB2 /* HermesVoiceTranscriber.swift in Sources */,
 				D18E40EC9B859511B536358E /* HermesRESTClient.swift in Sources */,
+				3C358742D3F8A6F335FD363D /* SSEEvent.swift in Sources */,
+				514C85715D56009C1071484C /* HermesChatStreamClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
