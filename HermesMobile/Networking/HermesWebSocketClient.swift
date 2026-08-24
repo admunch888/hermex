@@ -92,7 +92,11 @@ final class HermesWebSocketClient: NSObject, URLSessionWebSocketDelegate {
         let task = session.webSocketTask(with: wsURL)
         self.task = task
         task.resume()
-        receiveLoop()
+        // NOTE: do NOT call receiveLoop() here. `receive()` must wait until the
+        // WebSocket handshake completes (urlSession(_:webSocketTask:didOpenWithProtocol:))
+        // or iOS fails the pending receive with POSIX 57 "Socket is not connected"
+        // immediately after the delegate reports the socket open — the
+        // connect→connected→transport-error reconnect loop this port was hitting.
         startPing()
     }
 
@@ -115,6 +119,9 @@ final class HermesWebSocketClient: NSObject, URLSessionWebSocketDelegate {
         reconnectAttempt = 0
         setState(.connected)
         print("[Hermex] WS connected")
+        // The handshake is complete — only now is it safe to arm the receive
+        // loop (arming it earlier trips POSIX 57 on the pending receive).
+        receiveLoop()
     }
 
     private func handleClose(code: URLSessionWebSocketTask.CloseCode, reason: Data?) {
@@ -281,5 +288,25 @@ final class HermesWebSocketClient: NSObject, URLSessionWebSocketDelegate {
         reason: Data?
     ) {
         Task { @MainActor [weak self] in self?.handleClose(code: closeCode, reason: reason) }
+    }
+
+    nonisolated func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didCompleteWithError error: Error?
+    ) {
+        // URLSessionTaskDelegate: fires when the WebSocket task finishes.
+        // A non-nil error here means the handshake/connection failed WITHOUT a
+        // close frame (connection refused, timeout, network change, POSIX 57) —
+        // `didCloseWith` may never be called in that case, and since the receive
+        // loop is only armed on open, this is the only signal. `didCloseWith`
+        // tears down `self.task` first when it does fire, so guard on identity to
+        // avoid double-handling a clean close (whose error is nil anyway).
+        guard let error else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let current = self.task, current === task else { return }
+            self.handleTransportError(error)
+        }
     }
 }
