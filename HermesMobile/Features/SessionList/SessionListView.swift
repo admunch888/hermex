@@ -1211,10 +1211,18 @@ struct SessionListView: View {
         navigationState.select(PendingNewChatRoute())
     }
 
-    /// Opens a new chat scoped to a bot's profile (the Hermes "Bot Mode" tap-to-chat).
+    /// Opens a bot's canonical "Bot Chat" (Hermes Bot Mode), falling back to a
+    /// new chat scoped to that profile when no canonical chat exists yet.
     private func openBotChat(_ profile: ProfileSummary) {
         guard let name = profile.normalizedName else { return }
-        navigationState.select(PendingNewChatRoute(profileName: name))
+        Task {
+            if let session = await viewModel.botChatSession(profile: name) {
+                navigationState.select(session)
+                persistLastSelectedSession()
+            } else {
+                navigationState.select(PendingNewChatRoute(profileName: name))
+            }
+        }
     }
 
     private func selectSession(_ session: SessionSummary) {

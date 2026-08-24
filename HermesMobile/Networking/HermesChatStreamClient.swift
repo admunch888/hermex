@@ -306,6 +306,18 @@ final class HermesChatStreamClient: SSEStreamingClient {
         return try await rpc("session.list")
     }
 
+    /// Locates a profile's canonical hidden "Bot Chat" session via
+    /// `session.list` with an exact-title lookup (`title` + `include_hidden`).
+    func sessionList(title: String, profile: String?) async throws -> JSONValue {
+        try await ensureConnected()
+        var params: [String: JSONValue] = [
+            "title": .string(title),
+            "include_hidden": .bool(true),
+        ]
+        if let profile { params["profile"] = .string(profile) }
+        return try await rpc("session.list", params)
+    }
+
     // MARK: - Event handling + translation
 
     private func handle(_ event: HermesEvent) {

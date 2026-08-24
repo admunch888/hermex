@@ -190,7 +190,8 @@ extension APIClient: KanbanDataClient {
     func kanbanBoard(_ request: KanbanBoardRequest) async throws -> KanbanBoardSnapshot {
         if isHermesAgentServer {
             let rest = try hermesKanbanRest()
-            return try Self.hermesKanbanDecode(try await rest.kanbanBoardSnapshot(slug: request.board))
+            let json = try await rest.kanbanBoardSnapshot(slug: request.board)
+            return try Self.hermesKanbanBoardSnapshot(from: json)
         }
         return try await kanbanJSON(endpoint: .kanbanBoard(request))
     }
@@ -429,6 +430,19 @@ extension APIClient: KanbanDataClient {
         )
     }
 
+    /// Hermes `/board` returns the columns but no `changed` flag (the webui
+    /// snapshot's "changed since your cursor" boolean). The compatibility
+    /// validator requires `changed == true`, so inject it before decoding.
+    private static func hermesKanbanBoardSnapshot(from json: JSONValue) throws -> KanbanBoardSnapshot {
+        guard case .object(let object) = json else {
+            return try hermesKanbanDecode(json)
+        }
+        var dict = hermesJSONValueToAny(.object(object)) as? [String: Any] ?? [:]
+        dict["changed"] = true
+        dict["readOnly"] = false
+        return try decodeResponse(KanbanBoardSnapshot.self, from: dict)
+    }
+
     private func hermesKanbanConfiguration() async throws -> KanbanConfiguration {
         let rest = try hermesKanbanRest()
         let json = try await rest.kanbanConfig()
@@ -440,12 +454,19 @@ extension APIClient: KanbanDataClient {
         // and the create-card status picker have a value.
         var dict = Self.hermesJSONValueToAny(.object(object)) as? [String: Any] ?? [:]
         dict["columns"] = ["triage", "todo", "scheduled", "ready", "running", "blocked", "review", "done"]
+        dict["readOnly"] = false
         return try Self.decodeResponse(KanbanConfiguration.self, from: dict)
     }
 
     private func hermesKanbanBoards() async throws -> KanbanBoardsResponse {
         let rest = try hermesKanbanRest()
-        return try Self.hermesKanbanDecode(try await rest.kanbanBoards())
+        let json = try await rest.kanbanBoards()
+        guard case .object(let object) = json else {
+            return try Self.hermesKanbanDecode(json)
+        }
+        var dict = Self.hermesJSONValueToAny(.object(object)) as? [String: Any] ?? [:]
+        dict["readOnly"] = false
+        return try Self.decodeResponse(KanbanBoardsResponse.self, from: dict)
     }
 
     private func kanbanJSON<Response: Decodable>(endpoint: Endpoint) async throws -> Response {

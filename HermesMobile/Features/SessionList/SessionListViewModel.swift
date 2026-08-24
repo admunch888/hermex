@@ -695,6 +695,13 @@ final class SessionListViewModel {
         }
     }
 
+    /// Returns a bot's canonical "Bot Chat" session (Hermes Bot Mode) if it
+    /// exists; nil otherwise, so callers fall back to a new chat in that profile.
+    func botChatSession(profile: String) async -> SessionSummary? {
+        guard client.isHermesAgentServer else { return nil }
+        return (try? await client.hermesBotChatSession(profile: profile)) ?? nil
+    }
+
     func move(_ session: SessionSummary, to projectID: String?, modelContext: ModelContext? = nil) async {
         guard let sessionId = Self.nonEmpty(session.sessionId) else {
             actionErrorMessage = String(localized: "The server did not provide a session ID.")

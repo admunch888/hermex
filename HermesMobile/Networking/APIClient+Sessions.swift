@@ -86,6 +86,21 @@ extension APIClient {
         return map
     }
 
+    /// Finds a profile's canonical "Bot Chat" session (hidden, titled
+    /// "Bot Chat") via the WS title lookup. Returns nil when it doesn't exist.
+    func hermesBotChatSession(profile: String) async throws -> SessionSummary? {
+        let hermes = try await hermesChatClient()
+        let json = try await hermes.sessionList(title: "Bot Chat", profile: profile)
+        guard case .object(let object) = json, case .array(let sessions)? = object["sessions"] else {
+            return nil
+        }
+        for sessionValue in sessions {
+            guard case .object(let item) = sessionValue else { continue }
+            return try Self.decodeResponse(SessionSummary.self, from: Self.hermesSessionSummaryDict(from: item))
+        }
+        return nil
+    }
+
     func searchSessions(query: String, content: Bool = true, depth: Int = 5) async throws -> SessionSearchResponse {
         if isHermesAgentServer {
             return try await hermesSearchSessions(query: query)
