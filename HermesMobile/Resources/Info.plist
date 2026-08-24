@@ -41,14 +41,13 @@
 	<string>$(HERMES_URL_SCHEME)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>100.64.0.0/10</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
+		<!-- Hermex is a bring-your-own-server client: users point it at arbitrary
+		     LAN/Tailscale IPs, .local names, or self-hosted domains over plain
+		     HTTP. ATS exceptions can only be keyed by DNS hostname (IP-literal
+		     and CIDR keys like "100.64.0.0/10" are silently ignored), so the
+		     reliable configuration is arbitrary loads. -->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Hermex needs microphone access to dictate text into the message composer.</string>
