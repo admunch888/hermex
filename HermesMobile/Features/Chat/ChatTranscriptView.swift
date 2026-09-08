@@ -74,7 +74,6 @@ struct ChatTranscriptView: View {
     let onPreviewAttachment: (MessageAttachment, Data?) -> Void
     let onPreviewTranscriptMedia: (TranscriptMediaReference) -> Void
     let onToggleListening: (MessageActionContext) -> Void
-    let onSelectText: (MessageActionContext) -> Void
     let onRegenerate: (MessageActionContext) -> Void
     let onEdit: (MessageActionContext) -> Void
     let onFork: (MessageActionContext) -> Void
@@ -312,7 +311,6 @@ struct ChatTranscriptView: View {
                     onPreviewAttachment: onPreviewAttachment,
                     onPreviewTranscriptMedia: onPreviewTranscriptMedia,
                     onToggleListening: onToggleListening,
-                    onSelectText: onSelectText,
                     onRegenerate: onRegenerate,
                     onEdit: onEdit,
                     onFork: onFork,
@@ -556,7 +554,6 @@ private struct ChatTranscriptMessageBlock: View, Equatable {
     let onPreviewAttachment: (MessageAttachment, Data?) -> Void
     let onPreviewTranscriptMedia: (TranscriptMediaReference) -> Void
     let onToggleListening: (MessageActionContext) -> Void
-    let onSelectText: (MessageActionContext) -> Void
     let onRegenerate: (MessageActionContext) -> Void
     let onEdit: (MessageActionContext) -> Void
     let onFork: (MessageActionContext) -> Void
@@ -676,7 +673,6 @@ private struct ChatTranscriptMessageBlock: View, Equatable {
                     onPreviewAttachment: onPreviewAttachment,
                     onPreviewTranscriptMedia: onPreviewTranscriptMedia,
                     onToggleListening: onToggleListening,
-                    onSelectText: onSelectText,
                     onRegenerate: onRegenerate,
                     onEdit: onEdit,
                     onFork: onFork,
@@ -764,7 +760,6 @@ private struct ChatTranscriptMessageRow: View {
     let onPreviewAttachment: (MessageAttachment, Data?) -> Void
     let onPreviewTranscriptMedia: (TranscriptMediaReference) -> Void
     let onToggleListening: (MessageActionContext) -> Void
-    let onSelectText: (MessageActionContext) -> Void
     let onRegenerate: (MessageActionContext) -> Void
     let onEdit: (MessageActionContext) -> Void
     let onFork: (MessageActionContext) -> Void
@@ -786,7 +781,8 @@ private struct ChatTranscriptMessageRow: View {
                         timeText: metaTimeText,
                         onCopy: actionContext.map { context -> () -> Void in
                             { onCopy(context) }
-                        }
+                        },
+                        actionMenu: isUserMessage ? nil : actionMenu
                     )
                 }
             }
@@ -797,15 +793,15 @@ private struct ChatTranscriptMessageRow: View {
         message.role == "user"
     }
 
-    /// Every user message carries the row; an assistant row only as the reply
-    /// that closes a settled turn, and never while it is still streaming.
+    /// Keep actions reachable for every actionable reply, including active turns.
     private var showsMetaRow: Bool {
-        guard metaTimeText != nil || actionContext != nil else { return false }
-        return isUserMessage || (isTerminalReply && !isStreaming)
+        TranscriptMessageMetaPolicy.showsRow(
+            hasActions: actionContext != nil, hasTimestamp: metaTimeText != nil
+        )
     }
 
     private var metaTimeText: String? {
-        guard showsTimestamps else { return nil }
+        guard showsTimestamps, isUserMessage || (isTerminalReply && !isStreaming) else { return nil }
         return ChatMessageTimestampFormatter.shortTime(forUnixTimestamp: message.timestamp)
     }
 
@@ -822,7 +818,7 @@ private struct ChatTranscriptMessageRow: View {
             onPreviewTranscriptMedia: onPreviewTranscriptMedia,
             isStreaming: isStreaming,
             liveTokensPerSecond: liveTokensPerSecond,
-            contextMenu: actionMenu
+            contextMenu: isUserMessage ? actionMenu : nil
         )
     }
 
@@ -837,7 +833,6 @@ private struct ChatTranscriptMessageRow: View {
             isEditingMessage: isEditingMessage,
             isForkingMessage: isForkingMessage,
             onToggleListening: onToggleListening,
-            onSelectText: onSelectText,
             onRegenerate: onRegenerate,
             onEdit: onEdit,
             onFork: onFork,
